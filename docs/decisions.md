@@ -2,13 +2,11 @@
 
 只记「为什么这么定」，每条一段。改决策时更新对应条目，不追加叙事。
 
-## 模块命名：模块 `core`，artifactId `mquickjs-core`
+## 命名：产物 `mquickjs-kmp`，主模块 `library`
 
-三层各管一层：仓库名 `mquickjs-kmp`（`kmp` 只出现在这里）；Gradle 模块名是 artifactId 去掉 `mquickjs-` 前缀（`core`，将来 `serialization`、`gradle-plugin`），与 loginbase-kt 的 `core` / `browser` 同一惯例，映射在 `gradle/composite-substitutions` 与 `mavenPublishing.coordinates` 显式声明；Kotlin 包名 `wang.harlon.mquickjs`，不带 `core` 与 `kmp`。
+三层各管一层：仓库名与主产物同为 `mquickjs-kmp`；Gradle 主模块叫 `library`，扩展模块用自己的名字（将来 `serialization` ↔ `mquickjs-kmp-serialization`），与 kmp-webview 的 `library` / `scanner` 同一惯例，映射在 `gradle/composite-substitutions` 与 `mavenPublishing.coordinates` 显式声明；Kotlin 包名 `wang.harlon.mquickjs`，不带 `kmp`。
 
-第一版只有一个库模块 artifactId 也带 `-core`，因为 artifactId 改名等于破坏性变更，而路线图里已经有序列化模块与 Gradle 插件；`kotlinx-coroutines-core`、`ktor-client-core`、`koin-core` 都是同样的做法。artifactId 不放 `kmp`，多平台是 Gradle 模块元数据描述的事实。模块目录曾叫 `mquickjs-core`，与仓库名前缀重复且不符合其他仓库惯例，0.1.0 后改为 `core`，对外坐标不变。
-
-前缀沿用上游名字 `mquickjs`，好处是搜索直达，风险是名字不归自己。QuickJS 圈子的 Kotlin 绑定沿用 `quickjs-` 前缀没出过问题，作为默认接受。
+产物名里的 `kmp` 不是在描述平台列表（那是 Gradle 模块元数据的事），而是在说「这是 MQuickJS 的 Kotlin 移植，不是引擎本体」。0.1.0 最初以 `mquickjs-core` 发过一次，这个名字读起来像引擎自己的一个模块，随即改名重发；旧坐标无人使用，留作死坐标。`lz4-java`、`sqlite-jdbc`、`quickjs-kt` 都是「库名-绑定语言/平台」这一族。
 
 ## 平台范围：本期只做 Android + iOS
 
@@ -32,7 +30,7 @@ kotlinx-serialization、atomicfu、kotlinx-benchmark、Dokka 都到对应里程�
 
 ## API 守门：BCV 只覆盖 klib 目标
 
-binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multiplatform.library` 插件的 Android 编译，`apiDump` 只产出 `mquickjs-core.klib.api`（iOS 与 macOS）。Android 侧的 ABI 目前没有守门，公共 API 在 commonMain 单一来源，klib 的 dump 已能覆盖签名变化；等 BCV 支持该插件后再补 JVM dump。
+binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multiplatform.library` 插件的 Android 编译，`apiDump` 只产出 `library.klib.api`（iOS 与 macOS）。Android 侧的 ABI 目前没有守门，公共 API 在 commonMain 单一来源，klib 的 dump 已能覆盖签名变化；等 BCV 支持该插件后再补 JVM dump。
 
 ## stdlib 定义：复制上游后修改，而非 patch
 

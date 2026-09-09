@@ -53,7 +53,7 @@ Android host test 走宿主编译的 JNI 库：`buildNativeHostJni` 以 `-DMQJS_
 
 ## 字节码
 
-编译器就是 shim 的 `kmpjs_compile`：宿主工具 `kmpjsc`（`native/tools`，`./gradlew :core:buildHostTools` 编出 `build/native/host-tools/bin/kmpjsc`）和 Kotlin 的 `JsBytecode.compile` 都只是它的包装。输出绑定 `native/UPSTREAM` 的 commit（CMake 读进 `KMPJS_UPSTREAM_COMMIT` 编译期常量）与字长：iOS 真机、Apple Silicon 模拟器、Android arm64 / x86_64 都是 64 位可共用，`armeabi-v7a` 用 `kmpjsc -m32` 另出一份，运行时按 `JsBytecode.wordSize` 选文件。不用上游的 `mqjs`：它链接的是上游 stdlib，且不会写我们的文件头。
+编译器就是 shim 的 `kmpjs_compile`：宿主工具 `kmpjsc`（`native/tools`，`./gradlew :library:buildHostTools` 编出 `build/native/host-tools/bin/kmpjsc`）和 Kotlin 的 `JsBytecode.compile` 都只是它的包装。输出绑定 `native/UPSTREAM` 的 commit（CMake 读进 `KMPJS_UPSTREAM_COMMIT` 编译期常量）与字长：iOS 真机、Apple Silicon 模拟器、Android arm64 / x86_64 都是 64 位可共用，`armeabi-v7a` 用 `kmpjsc -m32` 另出一份，运行时按 `JsBytecode.wordSize` 选文件。不用上游的 `mqjs`：它链接的是上游 stdlib，且不会写我们的文件头。
 
 使用方在构建期编译的最小做法：
 
