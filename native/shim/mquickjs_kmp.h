@@ -99,8 +99,9 @@ enum {
 int32_t kmpjs_word_size(void); /* 32 or 64: the bytecode flavour this engine build runs */
 
 /* Compiles `code` for `word_size` (a 64-bit engine can emit both, a 32-bit one only 32).
-   On success returns 0 with out->str/str_len holding the bytecode, allocated with kmpjs_alloc
-   and owned by the caller; on failure returns -1 with out->str (also caller-owned) holding the message. */
+   On success returns 0 with out->str/str_len holding the bytecode; on failure returns -1 with
+   out->str holding the message and out->stack the location. Both payloads come from kmpjs_alloc
+   and are owned by the caller: release them with kmpjs_free. */
 int32_t kmpjs_compile(const char *code, int32_t code_len, const char *filename,
                       int32_t word_size, int32_t flags, kmpjs_value *out);
 

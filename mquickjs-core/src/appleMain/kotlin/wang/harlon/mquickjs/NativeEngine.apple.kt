@@ -210,6 +210,7 @@ internal actual object NativeCompiler {
             out.toRaw()
         }
         kmpjs_free(out.str)
+        kmpjs_free(out.stack)
         result
     }
 }

@@ -418,6 +418,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeCompile(JNIEnv *env, jclass cls, jb
         res = new_value(env, &out);
     }
     kmpjs_free((void *)out.str);
+    kmpjs_free((void *)out.stack);
     free(code_buf);
     free(name_buf);
     return res;

@@ -52,8 +52,10 @@ int main(int argc, char **argv)
     fclose(f);
 
     if (kmpjs_compile(code, (int32_t)len, in_path, word_size, flags, &out) != 0) {
-        fprintf(stderr, "%s: %.*s\n", in_path, out.str_len, out.str ? out.str : "");
+        fprintf(stderr, "%s: %.*s\n%.*s\n", in_path, out.str_len, out.str ? out.str : "",
+                out.stack_len, out.stack ? out.stack : "");
         kmpjs_free((void *)out.str);
+        kmpjs_free((void *)out.stack);
         return 1;
     }
     f = fopen(out_path, "wb");

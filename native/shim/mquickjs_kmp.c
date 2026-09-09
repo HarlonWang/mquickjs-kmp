@@ -257,6 +257,32 @@ static int64_t slot_new(kmpjs_engine *e, JSValue v)
     return slot_handle(idx, s->gen);
 }
 
+/* Guarantees the next slot_new() cannot fail: the free list gets a slot ahead of time.
+   Used before steps that cannot be undone, such as JS_LoadBytecode. */
+static int slot_reserve(kmpjs_engine *e)
+{
+    kmp_slot *s;
+    if (e->free_head >= 0)
+        return 0;
+    if (e->slot_count == INT32_MAX)
+        return -1;
+    if (e->slot_count == e->slot_cap) {
+        int32_t cap = e->slot_cap ? e->slot_cap * 2 : 16;
+        kmp_slot **slots = realloc(e->slots, (size_t)cap * sizeof(*slots));
+        if (!slots)
+            return -1;
+        e->slots = slots;
+        e->slot_cap = cap;
+    }
+    s = calloc(1, sizeof(*s));
+    if (!s)
+        return -1;
+    s->next_free = -1;
+    e->slots[e->slot_count] = s;
+    e->free_head = e->slot_count++;
+    return 0;
+}
+
 static void slot_free(kmpjs_engine *e, int64_t ref)
 {
     int32_t idx = slot_index(ref);
@@ -998,6 +1024,9 @@ int32_t kmpjs_load_bytecode(kmpjs_engine *e, const uint8_t *buf, int32_t len, km
     body_len = (size_t)len - sizeof(hdr);
     if (body_len < sizeof(JSBytecodeHeader) || !JS_IsBytecode(buf + sizeof(hdr), body_len))
         return fail_message(e, out, "bytecode body is corrupt");
+    /* everything that can fail happens before JS_LoadBytecode: it cannot be undone */
+    if (slot_reserve(e))
+        return fail_message(e, out, "out of memory");
     /* JSValue alignment: the flexible member sits after one pointer, keep the data 8-aligned */
     block = malloc(sizeof(*block) + body_len + 8);
     if (!block)
@@ -1020,9 +1049,7 @@ int32_t kmpjs_load_bytecode(kmpjs_engine *e, const uint8_t *buf, int32_t len, km
     }
     block->next = e->blocks;
     e->blocks = block;
-    ref = slot_new(e, val);
-    if (!ref)
-        return fail_message(e, out, "out of memory");
+    ref = slot_new(e, val); /* cannot fail: reserved above */
     memset(out, 0, sizeof(*out));
     out->tag = KMPJS_TAG_REF;
     out->ref = ref;
