@@ -8,13 +8,13 @@ package wang.harlon.mquickjs
  * Refs received as host-function arguments are valid only for the duration of that call;
  * call [retain] to keep one.
  */
-public class JsRef internal constructor(
+class JsRef internal constructor(
     internal val engine: JsEngine,
     internal val id: Long,
     kind: Int,
 ) : JsValue, AutoCloseable {
-    public val isFunction: Boolean = kind and NativeTag.REF_FUNCTION != 0
-    public val isArray: Boolean = kind and NativeTag.REF_ARRAY != 0
+    val isFunction: Boolean = kind and NativeTag.REF_FUNCTION != 0
+    val isArray: Boolean = kind and NativeTag.REF_ARRAY != 0
 
     private var closed = false
 
@@ -22,23 +22,23 @@ public class JsRef internal constructor(
      * Whether this handle is still usable; false after [close], after the engine is closed, or,
      * for host-function arguments, after the call.
      */
-    public val isValid: Boolean
+    val isValid: Boolean
         get() = !closed && engine.isOpen
 
-    public fun get(name: String, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
+    fun get(name: String, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
         op { native.refGet(id, name, objects.flags) }
 
-    public fun get(index: Int, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
+    fun get(index: Int, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
         op { native.refGetIndex(id, index, objects.flags) }
 
-    public fun set(name: String, value: JsValue) {
+    fun set(name: String, value: JsValue) {
         op { native.refSet(id, name, encode(value)) }
     }
 
     /** Calls this function with `this` undefined; objects come back as JSON. */
-    public fun call(vararg args: JsValue): JsValue = invoke(null, args.toList())
+    fun call(vararg args: JsValue): JsValue = invoke(null, args.toList())
 
-    public fun invoke(
+    fun invoke(
         thisArg: JsRef?,
         args: List<JsValue>,
         objects: ObjectTransport = ObjectTransport.JSON,
@@ -48,10 +48,10 @@ public class JsRef internal constructor(
     }
 
     /** `JSON.stringify` of the object, or null when it cannot be serialized. */
-    public fun toJson(): String? = (op { native.refToJson(id) } as JsValue.Json).json
+    fun toJson(): String? = (op { native.refToJson(id) } as JsValue.Json).json
 
     /** Keeps a transient host-function argument alive beyond the call; the returned ref must be closed. */
-    public fun retain(): JsRef {
+    fun retain(): JsRef {
         op { native.refRetain(id); null }
         return JsRef(engine, id, (if (isFunction) NativeTag.REF_FUNCTION else 0) or (if (isArray) NativeTag.REF_ARRAY else 0))
     }

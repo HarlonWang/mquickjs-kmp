@@ -5,9 +5,9 @@ package wang.harlon.mquickjs
  * (see [MQuickJs.upstreamCommit]) and to a word size; [JsEngine.loadBytecode] rejects anything else.
  * Bytecode is not validated beyond that header: only load what this SDK produced.
  */
-public object JsBytecode {
+object JsBytecode {
     /** 64 on every 64-bit target, 32 on `armeabi-v7a`. Pick the matching file at runtime. */
-    public val wordSize: Int
+    val wordSize: Int
         get() = NativeCompiler.wordSize()
 
     /**
@@ -17,7 +17,7 @@ public object JsBytecode {
      * `SyntaxError: …` because the compile context has no class prototypes, [JsException.jsStack]
      * carries the location
      */
-    public fun compile(
+    fun compile(
         script: String,
         fileName: String = "<bytecode>",
         wordSize: Int = this.wordSize,

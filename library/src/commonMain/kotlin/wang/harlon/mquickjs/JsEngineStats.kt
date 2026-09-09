@@ -5,6 +5,6 @@ package wang.harlon.mquickjs
  * [JsRef] counts one, a [JsRef.retain] adds one more, and transient host-function arguments count
  * during the call; [refSlots] is how many handle slots the engine has allocated so far (live plus reusable).
  */
-public class JsEngineStats(public val liveRefs: Int, public val refSlots: Int) {
+class JsEngineStats(val liveRefs: Int, val refSlots: Int) {
     override fun toString(): String = "JsEngineStats(liveRefs=$liveRefs, refSlots=$refSlots)"
 }

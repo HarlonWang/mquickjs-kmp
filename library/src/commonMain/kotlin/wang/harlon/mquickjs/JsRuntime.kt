@@ -25,7 +25,7 @@ import kotlinx.coroutines.withTimeout
  * [Dispatchers.Default]; any dispatcher works because exclusion comes from the mutex, not from it.
  */
 @OptIn(ExperimentalAtomicApi::class)
-public class JsRuntime(
+class JsRuntime(
     config: JsEngineConfig = JsEngineConfig(),
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
 ) : AutoCloseable {
@@ -38,7 +38,7 @@ public class JsRuntime(
      * Runs [block] with exclusive access to the engine. Cancelling the calling coroutine interrupts
      * a script that is still running; the block then completes with [CancellationException].
      */
-    public suspend fun <T> withEngine(block: JsEngine.() -> T): T {
+    suspend fun <T> withEngine(block: JsEngine.() -> T): T {
         try {
             return mutex.withLock {
                 check(!closed.load()) { "JsRuntime is closed" }
@@ -76,7 +76,7 @@ public class JsRuntime(
      * [JsEngine.evaluate] with exclusive access. With [timeout] the script is interrupted and
      * a [kotlinx.coroutines.TimeoutCancellationException] is thrown when it runs too long.
      */
-    public suspend fun evaluate(
+    suspend fun evaluate(
         script: String,
         fileName: String = "<eval>",
         objects: ObjectTransport = ObjectTransport.JSON,
@@ -86,14 +86,14 @@ public class JsRuntime(
         return if (timeout == null) run() else withTimeout(timeout) { run() }
     }
 
-    public suspend fun registerFunction(
+    suspend fun registerFunction(
         name: String,
         objects: ObjectTransport = ObjectTransport.JSON,
         function: JsHostFunction,
     ): Unit = withEngine { registerFunction(name, objects, function) }
 
     /** Interrupts running work, waits for it to release the engine, then closes it. */
-    public suspend fun shutdown() {
+    suspend fun shutdown() {
         if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         engine.interrupt()
         withContext(NonCancellable) {

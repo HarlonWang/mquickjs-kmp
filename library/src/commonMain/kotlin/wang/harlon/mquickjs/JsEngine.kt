@@ -11,7 +11,7 @@ import kotlin.concurrent.atomics.incrementAndFetch
  * (see [JsRuntime]). [interrupt] is the only member safe to call from another thread.
  */
 @OptIn(ExperimentalAtomicApi::class)
-public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : AutoCloseable {
+class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : AutoCloseable {
     private val functions = ArrayList<JsHostFunction>()
     private val closed = AtomicBoolean(false)
     private val inFlightInterrupts = AtomicInt(0)
@@ -42,7 +42,7 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
      * Compiles and runs [script], returning the value of its last expression statement.
      * @throws JsException when the script throws, fails to parse, or exhausts memory.
      */
-    public fun evaluate(
+    fun evaluate(
         script: String,
         fileName: String = "<eval>",
         objects: ObjectTransport = ObjectTransport.JSON,
@@ -55,7 +55,7 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
      * Exposes [function] to scripts as the global [name]. With [ObjectTransport.REF] the function
      * receives object arguments as [JsRef]s that live only for the duration of the call.
      */
-    public fun registerFunction(
+    fun registerFunction(
         name: String,
         objects: ObjectTransport = ObjectTransport.JSON,
         function: JsHostFunction,
@@ -75,7 +75,7 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
      * Asks running script code to stop; the pending evaluation or call then throws [JsException].
      * Safe to call from any thread, including concurrently with [close].
      */
-    public fun interrupt() {
+    fun interrupt() {
         inFlightInterrupts.incrementAndFetch()
         try {
             if (!closed.load()) native.interrupt()
@@ -92,21 +92,21 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
      * @throws JsException when the bytecode was built for another engine or word size, is corrupt,
      * or the engine already ran script
      */
-    public fun loadBytecode(bytes: ByteArray): JsProgram {
+    fun loadBytecode(bytes: ByteArray): JsProgram {
         checkOpen()
         val ref = decode(native.loadBytecode(bytes)) as JsRef
         return JsProgram(this, ref.id)
     }
 
     /** Diagnostics: how many refs are alive. Useful in tests to prove nothing leaked. */
-    public fun stats(): JsEngineStats {
+    fun stats(): JsEngineStats {
         checkOpen()
         val raw = native.stats()
         return JsEngineStats(liveRefs = raw[0], refSlots = raw[1])
     }
 
     /** The engine's own heap summary (`JS_DumpMemory`), one line per block type. Diagnostics only. */
-    public fun dumpMemory(): String {
+    fun dumpMemory(): String {
         checkOpen()
         return (decode(native.dumpMemory()) as JsValue.Str).value
     }
