@@ -45,4 +45,8 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         result(NativeBridge.nativeRefCall(ptr, ref, thisRef, Array(args.size) { args[it].toNative() }, flags))
 
     actual fun refToJson(ref: Long): RawValue = result(NativeBridge.nativeRefToJson(ptr, ref))
+
+    actual fun stats(): IntArray = NativeBridge.nativeStats(ptr) ?: throw JsException("native call failed")
+
+    actual fun dumpMemory(): RawValue = result(NativeBridge.nativeDumpMemory(ptr))
 }

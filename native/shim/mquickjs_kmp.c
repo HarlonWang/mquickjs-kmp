@@ -78,6 +78,12 @@ static void buf_free(kmp_buf *b)
     b->len = b->cap = 0;
 }
 
+static void publish(kmp_buf *b, const char **pstr, int32_t *plen)
+{
+    *pstr = b->data ? b->data : "";
+    *plen = b->len;
+}
+
 char *kmpjs_alloc(int32_t len)
 {
     return malloc(len > 0 ? (size_t)len : 1);
@@ -257,6 +263,29 @@ void kmpjs_ref_release(kmpjs_engine *e, int64_t ref)
         slot_free(e, ref);
 }
 
+void kmpjs_get_stats(kmpjs_engine *e, kmpjs_stats *stats)
+{
+    int32_t i, live = 0;
+    for (i = 0; i < e->slot_count; i++) {
+        if (e->slots[i]->refcount > 0)
+            live++;
+    }
+    stats->live_refs = live;
+    stats->ref_slots = e->slot_count;
+}
+
+void kmpjs_dump_memory(kmpjs_engine *e, kmpjs_value *out)
+{
+    /* JS_DumpMemory writes through the log func, which lands in log_line */
+    buf_reset(&e->log_line);
+    JS_DumpMemory(e->ctx, 0);
+    buf_reset(&e->out_str);
+    buf_append(&e->out_str, e->log_line.data ? e->log_line.data : "", (size_t)e->log_line.len);
+    memset(out, 0, sizeof(*out));
+    out->tag = KMPJS_TAG_STRING;
+    publish(&e->out_str, &out->str, &out->str_len);
+}
+
 /* ---- engine lifecycle ---- */
 
 kmpjs_engine *kmpjs_create(int32_t mem_bytes, void *user, kmpjs_host_fn host, kmpjs_log_fn log)
@@ -337,12 +366,6 @@ static void run_end(kmpjs_engine *e, int outermost)
 }
 
 /* ---- value conversion ---- */
-
-static void publish(kmp_buf *b, const char **pstr, int32_t *plen)
-{
-    *pstr = b->data ? b->data : "";
-    *plen = b->len;
-}
 
 static int copy_js_string(JSContext *ctx, JSValue str, kmp_buf *b)
 {

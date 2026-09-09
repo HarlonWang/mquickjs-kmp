@@ -84,6 +84,19 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         }
     }
 
+    /** Diagnostics: how many refs are alive. Useful in tests to prove nothing leaked. */
+    public fun stats(): JsEngineStats {
+        checkOpen()
+        val raw = native.stats()
+        return JsEngineStats(liveRefs = raw[0], refSlots = raw[1])
+    }
+
+    /** The engine's own heap summary (`JS_DumpMemory`), one line per block type. Diagnostics only. */
+    public fun dumpMemory(): String {
+        checkOpen()
+        return (decode(native.dumpMemory()) as JsValue.Str).value
+    }
+
     /** Releases every [JsRef] as well: the engine's whole memory goes away with it. */
     override fun close() {
         if (!closed.compareAndSet(expectedValue = false, newValue = true)) return

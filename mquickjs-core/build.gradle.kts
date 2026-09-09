@@ -3,6 +3,7 @@ import org.gradle.api.file.FileSystemOperations
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import java.io.ByteArrayOutputStream
 import java.io.FileOutputStream
 import java.util.Properties
 import javax.inject.Inject
@@ -311,6 +312,51 @@ val buildNativeHostJni = tasks.register<CMakeBuild>("buildNativeHostJni") {
             listOf("-DMQJS_HOST_JNI=ON", "-DMQJS_JNI_INCLUDE=$javaHome/include;$javaHome/include/$jniPlatformDir")
         },
     )
+}
+
+// shim 的 C 测试：DEBUG_GC 让每次分配都移动对象，ASan 抓越界与悬垂，是句柄表最直接的保险（docs/native-build.md）
+val buildNativeShimTest = tasks.register<CMakeBuild>("buildNativeShimTest") {
+    sources.from(nativeSources)
+    sourceDir.set(nativeDir)
+    generatedDir.set(generateStdlib64.flatMap { it.outputDir })
+    cmakeBuildDir.set(nativeBuildDir.map { it.dir("shim-test/cmake") })
+    libDir.set(nativeBuildDir.map { it.dir("shim-test/bin") })
+    cmakeArgs.set(listOf("-DMQJS_SHIM_TEST=ON", "-DMQJS_DEBUG_GC=ON", "-DMQJS_ASAN=ON", "-DCMAKE_BUILD_TYPE=Debug", "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + nativeBuildDir.get().dir("shim-test/bin").asFile.absolutePath))
+}
+
+abstract class RunShimTest @Inject constructor(private val execOps: ExecOperations) : DefaultTask() {
+    @get:InputDirectory
+    abstract val binDir: DirectoryProperty
+
+    @get:OutputFile
+    abstract val report: RegularFileProperty
+
+    @TaskAction
+    fun run() {
+        val out = ByteArrayOutputStream()
+        val result = execOps.exec {
+            commandLine(binDir.get().file("shim_test").asFile.absolutePath)
+            standardOutput = out
+            errorOutput = out
+            isIgnoreExitValue = true
+        }
+        val text = out.toString()
+        report.get().asFile.apply { parentFile.mkdirs() }.writeText(text)
+        if (result.exitValue != 0) {
+            throw GradleException("shim_test failed (exit ${result.exitValue}):\n$text")
+        }
+    }
+}
+
+val nativeShimTest = tasks.register<RunShimTest>("nativeShimTest") {
+    group = "verification"
+    description = "Runs native/test/shim_test.c under DEBUG_GC + AddressSanitizer on the host"
+    binDir.set(buildNativeShimTest.flatMap { it.libDir })
+    report.set(layout.buildDirectory.file("reports/shim-test/shim_test.txt"))
+}
+
+tasks.named("check") {
+    dependsOn(nativeShimTest)
 }
 
 kotlin {

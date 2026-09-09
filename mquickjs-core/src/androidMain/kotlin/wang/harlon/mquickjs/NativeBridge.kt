@@ -22,6 +22,8 @@ internal object NativeBridge {
     @JvmStatic external fun nativeRefSet(ptr: Long, ref: Long, name: ByteArray, value: NativeValue): NativeValue?
     @JvmStatic external fun nativeRefCall(ptr: Long, ref: Long, thisRef: Long, args: Array<NativeValue>, flags: Int): NativeValue?
     @JvmStatic external fun nativeRefToJson(ptr: Long, ref: Long): NativeValue?
+    @JvmStatic external fun nativeStats(ptr: Long): IntArray?
+    @JvmStatic external fun nativeDumpMemory(ptr: Long): NativeValue?
 
     @JvmStatic
     fun onHostCall(target: Any, id: Int, args: Array<NativeValue?>): NativeValue {

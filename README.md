@@ -92,7 +92,7 @@ JsEngine().use { engine ->
 }
 ```
 
-Host functions registered with `ObjectTransport.REF` receive refs that live only for the duration of the call; `retain()` keeps one.
+Host functions registered with `ObjectTransport.REF` receive refs that live only for the duration of the call; `retain()` keeps one. `engine.stats().liveRefs` tells you how many refs are still open, which is how the SDK's own tests prove nothing leaks.
 
 ### Coroutines: `JsRuntime`
 
@@ -126,7 +126,8 @@ Exclusion comes from an internal mutex, so any dispatcher works; the default is 
 
 - JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
 - `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
-- CI (`.github/workflows/build.yml`) runs the macOS tests, iOS compilation, Android AAR assembly and the API check on every PR, and publishes a snapshot from `main`.
+- `./gradlew :mquickjs-core:nativeShimTest` runs the C-level shim tests under `DEBUG_GC` (every allocation moves objects) and AddressSanitizer.
+- CI (`.github/workflows/build.yml`) runs the shim tests, macOS tests, Android host tests, iOS compilation, Android AAR assembly and the API check on every PR, and publishes a snapshot from `main`.
 
 ## Upstream
 
