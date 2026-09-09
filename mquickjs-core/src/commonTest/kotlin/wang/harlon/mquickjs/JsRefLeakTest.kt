@@ -39,6 +39,9 @@ class JsRefLeakTest {
         assertEquals(0, engine.stats().liveRefs)
         engine.evaluate("keep({k: 1})")
         assertEquals(1, engine.stats().liveRefs)
+        val again = kept!!.retain()
+        assertEquals(2, engine.stats().liveRefs)
+        again.close()
         kept!!.close()
         assertEquals(0, engine.stats().liveRefs)
     }

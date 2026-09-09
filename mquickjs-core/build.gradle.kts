@@ -198,7 +198,7 @@ val cmakeExecutable: Provider<String> = providers.environmentVariable("PATH").ma
 }
 
 val nativeSources = fileTree(nativeDir) {
-    include("CMakeLists.txt", "mquickjs/**", "shim/**", "stdlib/**", "jni/**", "patches/**")
+    include("CMakeLists.txt", "mquickjs/**", "shim/**", "stdlib/**", "jni/**", "patches/**", "test/**")
 }
 
 val buildHostTool = tasks.register<BuildHostTool>("buildHostTool") {

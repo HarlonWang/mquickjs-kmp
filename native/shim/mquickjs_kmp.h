@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define KMPJS_ABI_VERSION 2
+#define KMPJS_ABI_VERSION 3
 
 typedef struct kmpjs_engine kmpjs_engine;
 
@@ -87,7 +87,7 @@ int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out);
 void kmpjs_interrupt(kmpjs_engine *e);
 
 typedef struct {
-    int32_t live_refs;  /* refs currently held by the host */
+    int32_t live_refs;  /* outstanding releases: every retain adds one */
     int32_t ref_slots;  /* slots allocated so far (live + reusable) */
 } kmpjs_stats;
 

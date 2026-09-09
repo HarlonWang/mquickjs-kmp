@@ -187,6 +187,10 @@ static void test_refs(void)
 
     /* transient refs into a host function, retained and given back */
     v = eval("keep({k: 'kept'}, [1], 'str')", 0); CHECK(v.tag == KMPJS_TAG_UNDEFINED);
+    kmpjs_get_stats(g, &st); CHECK(st.live_refs == 5); /* obj, arr, f, g2 + retained */
+    kmpjs_ref_retain(g, retained_ref);
+    kmpjs_get_stats(g, &st); CHECK(st.live_refs == 6);
+    kmpjs_ref_release(g, retained_ref);
     CHECK(kmpjs_ref_get(g, retained_ref, "k", 0, &v) == 0 && str_is(&v, "kept"));
     v = eval("give().k + '!'", 0); CHECK(str_is(&v, "kept!"));
     kmpjs_ref_release(g, retained_ref);

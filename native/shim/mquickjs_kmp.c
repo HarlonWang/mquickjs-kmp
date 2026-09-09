@@ -266,10 +266,9 @@ void kmpjs_ref_release(kmpjs_engine *e, int64_t ref)
 void kmpjs_get_stats(kmpjs_engine *e, kmpjs_stats *stats)
 {
     int32_t i, live = 0;
-    for (i = 0; i < e->slot_count; i++) {
-        if (e->slots[i]->refcount > 0)
-            live++;
-    }
+    /* refcount, not slots: a retained ref counts once per outstanding release */
+    for (i = 0; i < e->slot_count; i++)
+        live += e->slots[i]->refcount;
     stats->live_refs = live;
     stats->ref_slots = e->slot_count;
 }
