@@ -29,11 +29,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Android 端 JNI 只能在设备上跑，CI 暂不起模拟器（见 docs/roadmap.md），只验证 AAR 能构建
+      # Android host test 用宿主编译的 JNI 库走真实 JNI 路径；设备特有差异靠本地模拟器兜底（docs/decisions.md）
       - name: Build and test
         run: >
           ./gradlew
           :mquickjs-core:macosArm64Test
+          :mquickjs-core:testAndroidHostTest
           :mquickjs-core:compileKotlinIosArm64
           :mquickjs-core:compileKotlinIosSimulatorArm64
           :mquickjs-core:assembleAndroidMain

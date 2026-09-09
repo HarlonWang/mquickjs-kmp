@@ -42,6 +42,8 @@ binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multi
 
 `kmpjs_value` 只有 undefined / null / bool / number / string / object(JSON) / exception 七种。不做通用的 JS 对象句柄化是因为 M1 只需要"脚本算完给结果"的场景，JSON 让 JNI 与 cinterop 两套绑定都只处理字节数组，实现最短。对象句柄归 M2，届时以 `JsValue.Ref` 追加，不改现有类型。
 
-## Android 不建 host test
+## Android host test 用宿主 JNI 库，而非 JVM target
 
-JNI 库只有 Android ABI 的产物，JVM host test 无法加载，所以模块不调用 `withHostTestBuilder`，commonTest 全部作为 device test 在模拟器上跑。纯 Kotlin 的测试也因此只在设备与 Apple 端执行，接受这一点换取"一套 commonTest 三端同源"。
+Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loadLibrary` 在普通 JVM 上只要 `java.library.path` 里有宿主编译的 `libmquickjs_kmp.dylib` / `.so` 就能加载。因此 `buildNativeHostJni` 用同一份 CMake 在宿主上编一份带 JNI 的动态库，`testAndroidHostTest` 挂上它跑 commonTest，CI 不需要模拟器就覆盖了 JNI 胶水与 `NativeBridge` 回调。
+
+没有为此加 `jvm()` target：那意味着要为五个桌面平台维护原生库、资源解压加载器，并且发布面多出一个不能再删的 variant。设备特有的差异（Bionic、ART 的局部引用上限、armeabi-v7a 的 32 位表）仍靠本地 `connectedAndroidDeviceTest` 兜底。

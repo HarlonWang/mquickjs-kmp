@@ -88,7 +88,7 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 ## 构建
 
 - Gradle daemon 要求 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失时 Gradle 自动下载）、Xcode、装有 `gradle/libs.versions.toml` 所锁定 NDK 版本的 Android SDK、PATH 上的 `cmake`。
-- `./gradlew :mquickjs-core:macosArm64Test` 是最快的完整检查；Android 测试通过 `connectedAndroidDeviceTest` 在设备或模拟器上跑。
+- `./gradlew :mquickjs-core:macosArm64Test` 是最快的完整检查；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
 - CI（`.github/workflows/build.yml`）对每个 PR 跑 macOS 测试、iOS 编译、Android AAR 组装与 API 校验，并从 `main` 发布快照。
 
 ## 上游

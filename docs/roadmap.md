@@ -8,7 +8,7 @@
 - `buildHostTool` → `generateStdlib*` → 三端 `CMakeBuild`，Android `.so` 经变体 API 注入 AAR，Apple `.a` 经 cinterop 打进 klib
 - `JsEngine`：求值、`registerFunction`、异常映射（message + stack）、`console.log` 日志、`interrupt()`、内存上限
 - commonTest 15 个用例在 macOS 与 Android 模拟器通过，iOS 两个目标编译通过
-- GitHub Actions：PR / main 构建门禁，main 发 snapshot，tag 发正式版；CI 上的 Android 模拟器设备测试待补
+- GitHub Actions：PR / main 构建门禁（含宿主 JNI 库跑的 Android host test），main 发 snapshot，tag 发正式版
 
 ## M2 核心 API
 

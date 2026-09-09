@@ -132,6 +132,12 @@ abstract class CMakeBuild @Inject constructor(private val execOps: ExecOperation
     @get:Internal
     abstract val sourceDir: DirectoryProperty
 
+    @get:Input
+    abstract val environment: MapProperty<String, String>
+
+    @get:Input
+    abstract val cmake: Property<String>
+
     @get:OutputDirectory
     abstract val libDir: DirectoryProperty
 
@@ -142,9 +148,10 @@ abstract class CMakeBuild @Inject constructor(private val execOps: ExecOperation
         buildDir.mkdirs()
         lib.mkdirs()
         execOps.exec {
+            this@CMakeBuild.environment.get().forEach { (k, v) -> environment(k, v) }
             commandLine(
                 listOf(
-                    "cmake", "-S", sourceDir.get().asFile.absolutePath, "-B", buildDir.absolutePath,
+                    cmake.get(), "-S", sourceDir.get().asFile.absolutePath, "-B", buildDir.absolutePath,
                     "-DCMAKE_BUILD_TYPE=Release",
                     "-DMQJS_GEN_DIR=" + generatedDir.get().asFile.absolutePath,
                     "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + lib.absolutePath,
@@ -153,7 +160,7 @@ abstract class CMakeBuild @Inject constructor(private val execOps: ExecOperation
             )
         }
         execOps.exec {
-            commandLine("cmake", "--build", buildDir.absolutePath, "--config", "Release", "--parallel")
+            commandLine(cmake.get(), "--build", buildDir.absolutePath, "--config", "Release", "--parallel")
         }
     }
 }
@@ -177,6 +184,16 @@ abstract class CollectJniLibs @Inject constructor(private val fs: FileSystemOper
             }
         }
     }
+}
+
+// Gradle daemon 的 PATH 不一定含 homebrew，按 PATH 与 Android SDK 自带的 cmake 依次解析成绝对路径
+val cmakeExecutable: Provider<String> = providers.environmentVariable("PATH").map { path ->
+    path.split(File.pathSeparator)
+        .map { File(it, "cmake") }
+        .firstOrNull { it.canExecute() }
+        ?.absolutePath
+        ?: File("/opt/homebrew/bin/cmake").takeIf { it.canExecute() }?.absolutePath
+        ?: error("cmake not found on PATH; install it (brew install cmake) or add the Android SDK cmake to PATH")
 }
 
 val nativeSources = fileTree(nativeDir) {
@@ -268,13 +285,41 @@ val appleNativeTasks = appleTargets.mapValues { (name, target) ->
     }
 }
 
+// 宿主 JVM 用的 JNI 库：让 Android host test 在本机走真实 JNI 路径，不依赖模拟器（docs/decisions.md）
+val buildNativeHostJni = tasks.register<CMakeBuild>("buildNativeHostJni") {
+    sources.from(nativeSources)
+    sourceDir.set(nativeDir)
+    generatedDir.set(generateStdlib64.flatMap { it.outputDir })
+    cmakeBuildDir.set(nativeBuildDir.map { it.dir("host-jni/cmake") })
+    libDir.set(nativeBuildDir.map { it.dir("host-jni/lib") })
+    val jniPlatformDir = when {
+        System.getProperty("os.name").startsWith("Mac") -> "darwin"
+        System.getProperty("os.name").startsWith("Windows") -> "win32"
+        else -> "linux"
+    }
+    // daemon 的 java.home 可能是没有头文件的 JBR/JRE，只认带 include/jni.h 的完整 JDK
+    val jdkWithHeaders = providers.environmentVariable("JAVA_HOME")
+        .orElse(providers.systemProperty("java.home"))
+        .map { preferred ->
+            val installed = File("/Library/Java/JavaVirtualMachines").listFiles().orEmpty()
+                .map { File(it, "Contents/Home").absolutePath }
+            (listOf(preferred) + installed).firstOrNull { File(it, "include/jni.h").exists() }
+                ?: error("no JDK with include/jni.h found; point JAVA_HOME at a full JDK")
+        }
+    cmakeArgs.set(
+        jdkWithHeaders.map { javaHome ->
+            listOf("-DMQJS_HOST_JNI=ON", "-DMQJS_JNI_INCLUDE=$javaHome/include;$javaHome/include/$jniPlatformDir")
+        },
+    )
+}
+
 kotlin {
     android {
         namespace = "wang.harlon.mquickjs"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        // JNI 只能在设备上加载，commonTest 全部走 device test，不建 host test
+        withHostTestBuilder {}
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
         }.configure {
@@ -329,6 +374,16 @@ kotlin {
             implementation(libs.androidx.test.runner)
         }
     }
+}
+
+tasks.withType<CMakeBuild>().configureEach {
+    cmake.set(cmakeExecutable)
+}
+
+tasks.withType<Test>().matching { it.name == "testAndroidHostTest" }.configureEach {
+    dependsOn(buildNativeHostJni)
+    inputs.dir(buildNativeHostJni.flatMap { it.libDir })
+    systemProperty("java.library.path", buildNativeHostJni.flatMap { it.libDir }.get().asFile.absolutePath)
 }
 
 tasks.matching { it.name.startsWith("cinteropMquickjs") }.configureEach {

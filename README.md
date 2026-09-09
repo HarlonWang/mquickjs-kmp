@@ -88,7 +88,7 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 ## Building
 
 - JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
-- `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; Android tests run on a device or emulator via `connectedAndroidDeviceTest`.
+- `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
 - CI (`.github/workflows/build.yml`) runs the macOS tests, iOS compilation, Android AAR assembly and the API check on every PR, and publishes a snapshot from `main`.
 
 ## Upstream
