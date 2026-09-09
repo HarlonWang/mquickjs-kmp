@@ -25,19 +25,27 @@ git subtree pull --prefix native/mquickjs https://github.com/bellard/mquickjs.gi
 
 更新后同步改 `native/UPSTREAM` 的 `commit=` 与 `date=`。需要改上游代码时一律写进 `patches/`，保证 `subtree pull` 永远能干净合入。
 
-## 宿主工具
+## stdlib 定义与宿主工具
 
-`mquickjs_build.c` 在**宿主机**上运行，把 stdlib 定义编译成可放 ROM 的 C 结构（`*_stdlib.h`）。所有目标平台构建都依赖它的产物，Gradle 里拆成 `buildHostTool` 与各目标构建任务，前者是后者的前置依赖。
+`native/stdlib/kmp_stdlib.c` 是 SDK 自有的 stdlib 定义，从上游 `mqjs_stdlib.c` 派生：去掉 REPL 专用的 `gc` / `load` / `setTimeout` / `clearTimeout`，在 `js_c_function_decl` 里加入 `kmp_host` trampoline。上游没有给全局对象留扩展钩子，只能复制后修改；每次 `subtree pull` 后要 `diff` 上游的 `mqjs_stdlib.c` 并把变更手工同步过来。
+
+`mquickjs_build.c` 与该定义一起在**宿主机**上编译成 `kmp_stdlib` 工具，运行它得到两个头文件：`kmp_stdlib.h`（ROM 表与 `js_stdlib` 定义，被 `shim/mquickjs_kmp.c` 包含）和 `mquickjs_atom.h`（引擎核心 `mquickjs.c` 编译时依赖，atom 编号必须与 stdlib 表一致）。这意味着**每个 stdlib 变体对应一份独立的引擎编译**，不能复用别处的 `mquickjs.o`。
+
+生成物依赖目标字长：`-m32` 产出给 32 位目标用的表。Gradle 里 `buildHostTool` → `generateStdlib64` / `generateStdlib32` → 各目标 `buildNative*`，`armeabi-v7a` 用 32 位表，其余全部 64 位。
 
 ## 各目标
 
 | 目标 | 编译 | 绑定 | 产物 |
 |---|---|---|---|
-| Android | CMake（AGP `externalNativeBuild`），`arm64-v8a` / `armeabi-v7a` / `x86_64` | JNI | AAR 内含 `.so` |
+| Android | CMake + NDK 工具链，`arm64-v8a` / `armeabi-v7a` / `x86_64` | JNI | AAR 内含 `.so` |
 | iosArm64 / iosSimulatorArm64 | Xcode 工具链编出 `.a` | cinterop `.def`，`staticLibraries` 打进 klib | 使用方无需 CocoaPods / SPM |
 | macosArm64 | 同上 | 同上 | 调试宿主，随包发布 |
 
-NDK 版本固定在 version catalog 的 `android-ndk`，不用 AGP 默认值，避免 CI 与本机各自下载不同版本。
+三端都由 `native/CMakeLists.txt` 统一描述，Gradle 的 `CMakeBuild` 任务按目标传不同的 CMake 参数。AGP 9 的 KMP 库插件没有 `externalNativeBuild` DSL，Android 的 `.so` 由 `collectJniLibs` 汇总后经变体 API `sources.jniLibs.addGeneratedSourceDirectory` 注入 AAR。Apple 侧 cinterop 的 `.def` 用 `staticLibraries` 把 `.a` 打进 klib，`-libraryPath` 按目标传入。
+
+NDK 版本固定在 version catalog 的 `android-ndk`，不用 AGP 默认值，避免 CI 与本机各自下载不同版本。`cmake` 取 PATH 上的（brew 或 Android SDK 自带的均可）。
+
+Android 上 JNI 只能在设备加载，所以模块不建 host test，commonTest 全部作为 device test 跑（`connectedAndroidDeviceTest`）。
 
 ## 调试宿主
 

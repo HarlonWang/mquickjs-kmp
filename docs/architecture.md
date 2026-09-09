@@ -17,19 +17,20 @@ commonMain      JsEngine / JsValue / JsRef / JsException（expect 声明 + 纯 K
 
 ## shim 的三条设计约束
 
-**句柄表取代 JSValue。** 暴露给 Kotlin 的对象存进句柄表，Kotlin 只拿到整数下标。上游提供两种 GC root 机制：`JS_PushGCRef` / `JS_PopGCRef` 是栈式的，只适合一次调用内的临时引用；`JS_AddGCRef` / `JS_DeleteGCRef` 是链表式、可任意顺序释放，代价是慢。句柄表用后者实现，每个句柄一个 `JSGCRef`，Kotlin 侧 `JsRef` 实现 `AutoCloseable`，并用 `Cleaner` 兜底。
+**值跨界只传原始类型与字符串。** `kmpjs_value` 是唯一的跨界类型：undefined / null / bool / number 直接携带，字符串以 UTF-8 字节加长度传递，对象与数组在 C 侧调用 `JSON.stringify` 后以 JSON 文本传递（函数等不可序列化的对象 JSON 为空）。宿主函数的返回值反向走 `JS_Parse` 的 JSON 模式。字符串不走 JNI 的 `NewStringUTF`：引擎内部是 WTF-8，JNI 的 modified UTF-8 处理不了未配对代理项。
 
-**单一 trampoline 承接宿主函数。** 标准库由 `mquickjs_build.c` 在编译期生成到 ROM，C 函数按 stdlib 定义里的下标引用（`JS_NewCFunctionParams`），不存在运行时注册任意 C 函数的入口。因此 SDK 自带的 stdlib 只声明一个 `__kmpCall(id, args)`，C 侧按 id 分发到 Kotlin 注册的回调，JS 侧用引导脚本把它包装成普通函数。Kotlin/Native 的 `staticCFunction` 不能捕获状态，引擎实例通过 `JS_SetContextOpaque` 挂在上下文上，trampoline 从 opaque 指针取回 `StableRef`。
+**单一 trampoline 承接宿主函数。** 标准库由 `mquickjs_build.c` 在编译期生成到 ROM，C 函数只能按 stdlib 定义里的下标引用，不存在运行时注册任意 C 函数的入口。SDK 的 stdlib 在 `js_c_function_decl` 里只声明一个 `kmp_host`，`registerFunction` 用 `JS_NewCFunctionParams(ctx, kmp_host, id)` 造出带 id 闭包的函数对象挂到全局对象上，调用时 C 侧按 id 分发到 Kotlin。Kotlin/Native 的 `staticCFunction` 不能捕获状态，引擎实例通过 `JS_SetContextOpaque` 挂在上下文上，回调用 `StableRef` 取回。
 
-**值跨界只传原始类型与字符串。** 数字、布尔、字符串直接转；对象与数组经 JSON 字符串过桥。字符串统一以 UTF-8 字节数组过桥，不走 JNI 的 `NewStringUTF`：引擎内部是 WTF-8，JNI 的 modified UTF-8 处理不了未配对代理项。
+**句柄表取代 JSValue（M2）。** 需要让 Kotlin 长期持有 JS 对象时，对象存进句柄表，Kotlin 只拿整数下标。上游提供两种 GC root：`JS_PushGCRef` / `JS_PopGCRef` 栈式，只适合一次调用内的临时引用；`JS_AddGCRef` / `JS_DeleteGCRef` 链表式、可任意顺序释放。句柄表用后者。
 
 ## 运行时约束
 
-- 上下文单线程。`JsEngine` 内部持有一个单线程 Dispatcher，所有求值方法提供 `suspend` 版本并在其上串行执行。
-- 内存由调用方在创建引擎时一次性给出，引擎不再向系统申请。OOM 与 JS 异常统一经 `JS_GetException` 取 message 与 stack，映射为 `JsException`。
-- 超时中断使用上游的 `JS_SetInterruptHandler`。
+- 上下文单线程。`JsEngine` 不做同步，调用方在单线程使用或自行串行化；`interrupt()` 是唯一可跨线程调用的成员。协程 Dispatcher 封装归 M2。
+- 内存由调用方在创建引擎时一次性给出，引擎不再向系统申请。OOM 与 JS 异常统一经 `JS_GetException` 取 message（`toString()` 结果）与 `stack`，映射为 `JsException`。
+- 中断走上游的 `JS_SetInterruptHandler`，脚本以 `InternalError: interrupted` 终止，引擎随后可继续使用。
+- 引擎的解析器会读到输入末尾之后一个字节，shim 把所有源码与 JSON 拷贝成 NUL 结尾再交给引擎。
 - 字节码不做校验、不保证跨版本兼容，只加载可信来源；字节码缓存 key 必须包含上游 commit 与目标字长。
 
 ## 公共 API 边界
 
-core 只暴露四个类型：`JsEngine`、`JsValue`（sealed，原始类型直接持有）、`JsRef`（对象句柄）、`JsException`。类型化桥接（kotlinx.serialization）是独立模块，core 不依赖序列化库。公共 API 由 binary-compatibility-validator 守门，`api/` 目录下的 `.api` 文件入库。
+core 只暴露 `JsEngine`、`JsEngineConfig`、`JsValue`（sealed）、`JsHostFunction`、`JsException`，M2 再加 `JsRef`（对象句柄）。类型化桥接（kotlinx.serialization）是独立模块，core 不依赖序列化库。公共 API 由 binary-compatibility-validator 守门，`api/` 目录下的 `.api` 文件入库。

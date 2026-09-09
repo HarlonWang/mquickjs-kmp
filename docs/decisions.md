@@ -33,3 +33,15 @@ kotlinx-serialization、atomicfu、kotlinx-benchmark、Dokka 都到对应里程�
 ## API 守门：BCV 只覆盖 klib 目标
 
 binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multiplatform.library` 插件的 Android 编译，`apiDump` 只产出 `mquickjs-core.klib.api`（iOS 与 macOS）。Android 侧的 ABI 目前没有守门，公共 API 在 commonMain 单一来源，klib 的 dump 已能覆盖签名变化；等 BCV 支持该插件后再补 JVM dump。
+
+## stdlib 定义：复制上游后修改，而非 patch
+
+上游 `mqjs_stdlib.c` 的全局对象列表没有扩展钩子，唯一的条件编译是示例用的 `CONFIG_CLASS_EXAMPLE`。要加入 `kmp_host` trampoline 只能拥有一份自己的定义文件。选择复制到 `native/stdlib/kmp_stdlib.c` 而不是在 `patches/` 里打补丁，因为 stdlib 列表是声明式的、上游改动频率低、diff 一眼可读；补丁方案需要在构建期对 subtree 目录施加修改，与"上游目录禁止直接修改"冲突。
+
+## 跨界传值：原始类型直传，对象走 JSON
+
+`kmpjs_value` 只有 undefined / null / bool / number / string / object(JSON) / exception 七种。不做通用的 JS 对象句柄化是因为 M1 只需要"脚本算完给结果"的场景，JSON 让 JNI 与 cinterop 两套绑定都只处理字节数组，实现最短。对象句柄归 M2，届时以 `JsValue.Ref` 追加，不改现有类型。
+
+## Android 不建 host test
+
+JNI 库只有 Android ABI 的产物，JVM host test 无法加载，所以模块不调用 `withHostTestBuilder`，commonTest 全部作为 device test 在模拟器上跑。纯 Kotlin 的测试也因此只在设备与 Apple 端执行，接受这一点换取"一套 commonTest 三端同源"。

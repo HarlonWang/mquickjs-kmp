@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.22)
+project(mquickjs_kmp C)
+
+# Directory holding kmp_stdlib.h and mquickjs_atom.h produced by the host tool (docs/native-build.md).
+set(MQJS_GEN_DIR "" CACHE PATH "generated stdlib headers")
+option(MQJS_DEBUG_GC "move objects on every allocation to surface stale JSValue bugs" OFF)
+
+if(NOT MQJS_GEN_DIR)
+    message(FATAL_ERROR "MQJS_GEN_DIR must point at the generated stdlib headers")
+endif()
+
+set(MQJS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/mquickjs)
+
+add_library(mquickjs_kmp_static STATIC
+    ${MQJS_ROOT}/mquickjs.c
+    ${MQJS_ROOT}/dtoa.c
+    ${MQJS_ROOT}/libm.c
+    ${MQJS_ROOT}/cutils.c
+    shim/mquickjs_kmp.c
+)
+set_target_properties(mquickjs_kmp_static PROPERTIES OUTPUT_NAME mquickjs_kmp)
+target_include_directories(mquickjs_kmp_static
+    PUBLIC shim
+    PRIVATE ${MQJS_GEN_DIR} ${MQJS_ROOT}
+)
+target_compile_definitions(mquickjs_kmp_static PRIVATE _GNU_SOURCE)
+target_compile_options(mquickjs_kmp_static PRIVATE -Os -Wall -Wno-macro-redefined -fno-math-errno -fno-trapping-math -fvisibility=hidden)
+if(MQJS_DEBUG_GC)
+    target_compile_definitions(mquickjs_kmp_static PRIVATE DEBUG_GC)
+endif()
+
+if(ANDROID)
+    add_library(mquickjs_kmp SHARED jni/mquickjs_jni.c)
+    target_compile_options(mquickjs_kmp PRIVATE -Os -Wall -fvisibility=hidden)
+    target_link_libraries(mquickjs_kmp PRIVATE mquickjs_kmp_static)
+    target_link_options(mquickjs_kmp PRIVATE -Wl,--exclude-libs,ALL -Wl,--strip-all)
+endif()

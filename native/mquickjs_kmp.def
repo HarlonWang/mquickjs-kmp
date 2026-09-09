@@ -1,0 +1,4 @@
+headers = mquickjs_kmp.h
+headerFilter = mquickjs_kmp.h
+staticLibraries = libmquickjs_kmp.a
+package = wang.harlon.mquickjs.cinterop
