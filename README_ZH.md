@@ -7,7 +7,7 @@
 
 [English](./README.md) | 中文
 
-> ⚠️ 开发中。当前处于脚手架阶段：构建配置、架构文档与上游锁定已就位，原生桥接尚未实现。见 [docs/roadmap.md](docs/roadmap.md)。
+> ⚠️ 开发中。原生桥接已在三端跑通（求值、宿主函数、异常、日志、中断），但 API 仍在变动、尚未发布。见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 为什么
 
@@ -17,7 +17,7 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 
 | 模块 | 坐标 | 状态 |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | 脚手架 |
+| `mquickjs-core` | `wang.harlon:mquickjs-core` | M1：桥接可用，API 未稳定 |
 
 规划中：`mquickjs-serialization`（基于 kotlinx.serialization 的类型化桥接）与构建期脚本检查的 Gradle 插件。
 
@@ -40,6 +40,27 @@ commonMain.dependencies {
     implementation("wang.harlon:mquickjs-core:latest.version")
 }
 ```
+
+## 用法
+
+```kotlin
+JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { engine ->
+    engine.registerFunction("discount") { args ->
+        val amount = (args[0] as JsValue.Num).value
+        JsValue.Num(if (amount > 100) amount * 0.9 else amount)
+    }
+    engine.evaluate("var total = discount(120);")
+    engine.evaluate("total")                      // JsValue.Num(108.0)
+    engine.evaluate("({ok: total > 100})")        // JsValue.Json("{\"ok\":true}")
+    engine.evaluate("console.log('done', total)") // logger 收到 "done 108"
+}
+```
+
+- 原始类型以 `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined` 过桥，对象与数组以 `JsValue.Json` 过桥。
+- 脚本抛异常、语法错误或内存耗尽都抛 `JsException`，带引擎的 message 与 `stack`。
+- 宿主函数抛出的 Kotlin 异常在 JS 侧表现为带同样 message 的 `Error`。
+- `engine.interrupt()` 可从任意线程调用，运行中的脚本以 `InternalError: interrupted` 终止。
+- 引擎是单线程的，目前需要调用方自行串行化。
 
 ## 文档
 

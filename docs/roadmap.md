@@ -2,19 +2,19 @@
 
 每个里程碑可独立交付，后一步不返工前一步的原生层与 core API。
 
-## M1 打通链路
+## M1 打通链路（已完成，除 CI）
 
-- `native/shim` 句柄化 C API，`native/stdlib` 带 trampoline 的 stdlib 定义
-- 宿主工具任务 `buildHostTool`，Android CMake 接入 AGP，iOS / macOS 编出 `.a` 并经 cinterop 打进 klib
-- commonTest 跑通 `eval("1+2")` 与一个宿主函数回调，三端通过
-- CI 出 snapshot
+- `native/shim` 基于 `kmpjs_value` 的 C API，`native/stdlib` 带 `kmp_host` trampoline 的 stdlib 定义
+- `buildHostTool` → `generateStdlib*` → 三端 `CMakeBuild`，Android `.so` 经变体 API 注入 AAR，Apple `.a` 经 cinterop 打进 klib
+- `JsEngine`：求值、`registerFunction`、异常映射（message + stack）、`console.log` 日志、`interrupt()`、内存上限
+- commonTest 15 个用例在 macOS 与 Android 模拟器通过，iOS 两个目标编译通过
+- 待办：GitHub Actions 出 snapshot
 
 ## M2 核心 API
 
-- `JsEngine` builder：内存大小、宿主函数表、脚本加载器
-- 句柄表与 `JsRef` 生命周期（`AutoCloseable` + Cleaner）
-- 异常映射、`JS_SetInterruptHandler` 超时中断
-- 协程串行化：引擎专属单线程 Dispatcher，`suspend` 求值
+- 句柄表与 `JsRef` 生命周期（`AutoCloseable` + Cleaner），支持持有 JS 对象与回调 JS 函数
+- 协程串行化：引擎专属单线程 Dispatcher，`suspend` 求值与超时
+- 脚本加载器与字节码预编译入口
 
 ## M3 质量与文档
 

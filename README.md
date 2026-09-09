@@ -7,7 +7,7 @@
 
 English | [中文](./README_ZH.md)
 
-> ⚠️ Work in progress. The project is at the scaffolding stage: build setup, architecture docs and the upstream pin are in place; the native bridge is not implemented yet. See [docs/roadmap.md](docs/roadmap.md).
+> ⚠️ Work in progress. The native bridge runs on all three targets (evaluate, host functions, exceptions, logging, interrupt), but the API is still moving and nothing is published yet. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 
@@ -17,7 +17,7 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 
 | Module | Artifact | Status |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | Scaffolding |
+| `mquickjs-core` | `wang.harlon:mquickjs-core` | M1: bridge working, API unstable |
 
 Planned: `mquickjs-serialization` (typed bridging via kotlinx.serialization) and a Gradle plugin for build-time script checks.
 
@@ -40,6 +40,27 @@ commonMain.dependencies {
     implementation("wang.harlon:mquickjs-core:latest.version")
 }
 ```
+
+## Usage
+
+```kotlin
+JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { engine ->
+    engine.registerFunction("discount") { args ->
+        val amount = (args[0] as JsValue.Num).value
+        JsValue.Num(if (amount > 100) amount * 0.9 else amount)
+    }
+    engine.evaluate("var total = discount(120);")
+    engine.evaluate("total")                      // JsValue.Num(108.0)
+    engine.evaluate("({ok: total > 100})")        // JsValue.Json("{\"ok\":true}")
+    engine.evaluate("console.log('done', total)") // logger receives "done 108"
+}
+```
+
+- Primitives cross the boundary as `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined`; objects and arrays as `JsValue.Json`.
+- A script that throws, fails to parse, or exhausts its memory raises `JsException` with the engine's message and `stack`.
+- Throwing from a host function surfaces in JS as an `Error` with the Kotlin message.
+- `engine.interrupt()` may be called from any thread and stops the running script with `InternalError: interrupted`.
+- The engine is single-threaded; serialize access yourself for now.
 
 ## Documentation
 

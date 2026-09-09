@@ -6,6 +6,105 @@
 // - Show declarations: true
 
 // Library unique name: <mquickjs-kmp:mquickjs-core>
+abstract fun interface wang.harlon.mquickjs/JsHostFunction { // wang.harlon.mquickjs/JsHostFunction|null[0]
+    abstract fun invoke(kotlin.collections/List<wang.harlon.mquickjs/JsValue>): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsHostFunction.invoke|invoke(kotlin.collections.List<wang.harlon.mquickjs.JsValue>){}[0]
+}
+
+sealed interface wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue|null[0]
+    final class Bool : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Bool|null[0]
+        constructor <init>(kotlin/Boolean) // wang.harlon.mquickjs/JsValue.Bool.<init>|<init>(kotlin.Boolean){}[0]
+
+        final val value // wang.harlon.mquickjs/JsValue.Bool.value|{}value[0]
+            final fun <get-value>(): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Bool.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Bool.component1|component1(){}[0]
+        final fun copy(kotlin/Boolean = ...): wang.harlon.mquickjs/JsValue.Bool // wang.harlon.mquickjs/JsValue.Bool.copy|copy(kotlin.Boolean){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Bool.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // wang.harlon.mquickjs/JsValue.Bool.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Bool.toString|toString(){}[0]
+    }
+
+    final class Json : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Json|null[0]
+        constructor <init>(kotlin/String?) // wang.harlon.mquickjs/JsValue.Json.<init>|<init>(kotlin.String?){}[0]
+
+        final val json // wang.harlon.mquickjs/JsValue.Json.json|{}json[0]
+            final fun <get-json>(): kotlin/String? // wang.harlon.mquickjs/JsValue.Json.json.<get-json>|<get-json>(){}[0]
+
+        final fun component1(): kotlin/String? // wang.harlon.mquickjs/JsValue.Json.component1|component1(){}[0]
+        final fun copy(kotlin/String? = ...): wang.harlon.mquickjs/JsValue.Json // wang.harlon.mquickjs/JsValue.Json.copy|copy(kotlin.String?){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Json.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // wang.harlon.mquickjs/JsValue.Json.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Json.toString|toString(){}[0]
+    }
+
+    final class Num : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Num|null[0]
+        constructor <init>(kotlin/Double) // wang.harlon.mquickjs/JsValue.Num.<init>|<init>(kotlin.Double){}[0]
+        constructor <init>(kotlin/Int) // wang.harlon.mquickjs/JsValue.Num.<init>|<init>(kotlin.Int){}[0]
+
+        final val value // wang.harlon.mquickjs/JsValue.Num.value|{}value[0]
+            final fun <get-value>(): kotlin/Double // wang.harlon.mquickjs/JsValue.Num.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/Double // wang.harlon.mquickjs/JsValue.Num.component1|component1(){}[0]
+        final fun copy(kotlin/Double = ...): wang.harlon.mquickjs/JsValue.Num // wang.harlon.mquickjs/JsValue.Num.copy|copy(kotlin.Double){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Num.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // wang.harlon.mquickjs/JsValue.Num.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Num.toString|toString(){}[0]
+    }
+
+    final class Str : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Str|null[0]
+        constructor <init>(kotlin/String) // wang.harlon.mquickjs/JsValue.Str.<init>|<init>(kotlin.String){}[0]
+
+        final val value // wang.harlon.mquickjs/JsValue.Str.value|{}value[0]
+            final fun <get-value>(): kotlin/String // wang.harlon.mquickjs/JsValue.Str.value.<get-value>|<get-value>(){}[0]
+
+        final fun component1(): kotlin/String // wang.harlon.mquickjs/JsValue.Str.component1|component1(){}[0]
+        final fun copy(kotlin/String = ...): wang.harlon.mquickjs/JsValue.Str // wang.harlon.mquickjs/JsValue.Str.copy|copy(kotlin.String){}[0]
+        final fun equals(kotlin/Any?): kotlin/Boolean // wang.harlon.mquickjs/JsValue.Str.equals|equals(kotlin.Any?){}[0]
+        final fun hashCode(): kotlin/Int // wang.harlon.mquickjs/JsValue.Str.hashCode|hashCode(){}[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Str.toString|toString(){}[0]
+    }
+
+    final object Null : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Null|null[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Null.toString|toString(){}[0]
+    }
+
+    final object Undefined : wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsValue.Undefined|null[0]
+        final fun toString(): kotlin/String // wang.harlon.mquickjs/JsValue.Undefined.toString|toString(){}[0]
+    }
+}
+
+final class wang.harlon.mquickjs/JsEngine : kotlin/AutoCloseable { // wang.harlon.mquickjs/JsEngine|null[0]
+    constructor <init>(wang.harlon.mquickjs/JsEngineConfig = ...) // wang.harlon.mquickjs/JsEngine.<init>|<init>(wang.harlon.mquickjs.JsEngineConfig){}[0]
+
+    final fun close() // wang.harlon.mquickjs/JsEngine.close|close(){}[0]
+    final fun evaluate(kotlin/String, kotlin/String = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsEngine.evaluate|evaluate(kotlin.String;kotlin.String){}[0]
+    final fun interrupt() // wang.harlon.mquickjs/JsEngine.interrupt|interrupt(){}[0]
+    final fun registerFunction(kotlin/String, wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsEngine.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.JsHostFunction){}[0]
+}
+
+final class wang.harlon.mquickjs/JsEngineConfig { // wang.harlon.mquickjs/JsEngineConfig|null[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Function1<kotlin/String, kotlin/Unit>? = ...) // wang.harlon.mquickjs/JsEngineConfig.<init>|<init>(kotlin.Int;kotlin.Function1<kotlin.String,kotlin.Unit>?){}[0]
+
+    final val logger // wang.harlon.mquickjs/JsEngineConfig.logger|{}logger[0]
+        final fun <get-logger>(): kotlin/Function1<kotlin/String, kotlin/Unit>? // wang.harlon.mquickjs/JsEngineConfig.logger.<get-logger>|<get-logger>(){}[0]
+    final val memoryBytes // wang.harlon.mquickjs/JsEngineConfig.memoryBytes|{}memoryBytes[0]
+        final fun <get-memoryBytes>(): kotlin/Int // wang.harlon.mquickjs/JsEngineConfig.memoryBytes.<get-memoryBytes>|<get-memoryBytes>(){}[0]
+
+    final object Companion { // wang.harlon.mquickjs/JsEngineConfig.Companion|null[0]
+        final const val DEFAULT_MEMORY_BYTES // wang.harlon.mquickjs/JsEngineConfig.Companion.DEFAULT_MEMORY_BYTES|{}DEFAULT_MEMORY_BYTES[0]
+            final fun <get-DEFAULT_MEMORY_BYTES>(): kotlin/Int // wang.harlon.mquickjs/JsEngineConfig.Companion.DEFAULT_MEMORY_BYTES.<get-DEFAULT_MEMORY_BYTES>|<get-DEFAULT_MEMORY_BYTES>(){}[0]
+        final const val MIN_MEMORY_BYTES // wang.harlon.mquickjs/JsEngineConfig.Companion.MIN_MEMORY_BYTES|{}MIN_MEMORY_BYTES[0]
+            final fun <get-MIN_MEMORY_BYTES>(): kotlin/Int // wang.harlon.mquickjs/JsEngineConfig.Companion.MIN_MEMORY_BYTES.<get-MIN_MEMORY_BYTES>|<get-MIN_MEMORY_BYTES>(){}[0]
+    }
+}
+
+final class wang.harlon.mquickjs/JsException : kotlin/RuntimeException { // wang.harlon.mquickjs/JsException|null[0]
+    constructor <init>(kotlin/String, kotlin/String? = ...) // wang.harlon.mquickjs/JsException.<init>|<init>(kotlin.String;kotlin.String?){}[0]
+
+    final val jsStack // wang.harlon.mquickjs/JsException.jsStack|{}jsStack[0]
+        final fun <get-jsStack>(): kotlin/String? // wang.harlon.mquickjs/JsException.jsStack.<get-jsStack>|<get-jsStack>(){}[0]
+}
+
 final object wang.harlon.mquickjs/MQuickJs { // wang.harlon.mquickjs/MQuickJs|null[0]
     final val sdkVersion // wang.harlon.mquickjs/MQuickJs.sdkVersion|{}sdkVersion[0]
         final fun <get-sdkVersion>(): kotlin/String // wang.harlon.mquickjs/MQuickJs.sdkVersion.<get-sdkVersion>|<get-sdkVersion>(){}[0]

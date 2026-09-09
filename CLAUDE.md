@@ -6,6 +6,8 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 
 - `mquickjs-core/`：唯一的库模块，artifactId 同名，包名 `wang.harlon.mquickjs`
 - `native/mquickjs/`：上游 git subtree，**禁止直接修改**，改动进 `native/patches/`
+- `native/stdlib/kmp_stdlib.c`：从上游 `mqjs_stdlib.c` 复制修改而来，subtree pull 后要 diff 同步
+- `native/shim/`：唯一的 C API 层，JNI 与 cinterop 都只对接它
 - `native/UPSTREAM`：上游 commit 唯一真值，Gradle 读它生成 `BuildInfo.kt`
 - `docs/decisions.md`：为什么这么定；改决策时更新条目，不追加叙事
 
@@ -16,7 +18,11 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 - 公共 API 改动要跑 `./gradlew apiDump`，`api/` 目录入库
 - 平台绑定只对接 `native/shim`，不直接对接 `mquickjs.h`；Kotlin 侧永远不持有原生 `JSValue`（原因见 docs/architecture.md）
 
-## 构建
+## 构建与测试
 
-- JDK 17+，Xcode，Android SDK（NDK 版本见 version catalog）
-- `./gradlew :mquickjs-core:assemble`
+- JDK 17+、Xcode、Android SDK（NDK 版本见 version catalog）、PATH 上有 `cmake`、`local.properties` 里 `sdk.dir`
+- 原生链路：`buildHostTool` → `generateStdlib64/32` → `buildNative*`（CMake）→ Android `collectJniLibs` / Apple cinterop，全部由 Gradle 驱动，详见 docs/native-build.md
+- macOS 单测（最快的反馈）：`./gradlew :mquickjs-core:macosArm64Test`
+- Android 设备测试（需模拟器在线）：`./gradlew :mquickjs-core:connectedAndroidDeviceTest`
+- iOS 只编译：`./gradlew :mquickjs-core:compileKotlinIosArm64 :mquickjs-core:compileKotlinIosSimulatorArm64`
+- 改 shim 时先用 ASan 在宿主上跑一遍 C 冒烟（`native/shim` + 生成头 + 引擎四个 .c 直接 `cc -fsanitize=address`），比走 Gradle 快得多
