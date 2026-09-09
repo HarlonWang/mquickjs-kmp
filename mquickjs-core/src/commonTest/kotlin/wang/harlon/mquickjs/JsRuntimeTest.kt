@@ -52,6 +52,55 @@ class JsRuntimeTest {
     }
 
     @Test
+    fun multiLaneDispatcherStillSerializes() = realTime {
+        val runtime = JsRuntime(dispatcher = Dispatchers.Default)
+        try {
+            runtime.evaluate("var counter = 0; var active = 0; var overlap = false;")
+            coroutineScope {
+                List(50) {
+                    async {
+                        runtime.withEngine {
+                            evaluate("active++; if (active > 1) overlap = true;")
+                            evaluate("for (var i = 0; i < 20000; i++) {} counter++; active--;")
+                        }
+                    }
+                }.awaitAll()
+            }
+            assertEquals(JsValue.Num(50), runtime.evaluate("counter"))
+            assertEquals(JsValue.Bool(false), runtime.evaluate("overlap"))
+        } finally {
+            runtime.shutdown()
+        }
+    }
+
+    @Test
+    fun shutdownWaitsForRunningWorkAndInterruptsIt() = realTime {
+        val runtime = JsRuntime()
+        coroutineScope {
+            val job = launch {
+                val e = assertFailsWith<JsException> { runtime.evaluate("for (;;) {}") }
+                assertTrue(e.message.orEmpty().contains("interrupted"), "message was: ${e.message}")
+            }
+            delay(200)
+            runtime.shutdown()
+            job.join()
+        }
+        assertFailsWith<IllegalStateException> { runtime.evaluate("1") }
+    }
+
+    @Test
+    fun closeWhileBusyCompletesWhenWorkEnds() = realTime {
+        val runtime = JsRuntime()
+        coroutineScope {
+            val job = launch { runCatching { runtime.evaluate("for (;;) {}") } }
+            delay(200)
+            runtime.close()
+            job.join()
+        }
+        assertFailsWith<IllegalStateException> { runtime.evaluate("1") }
+    }
+
+    @Test
     fun timeoutInterruptsRunningScript() = realTime {
         val runtime = JsRuntime()
         try {

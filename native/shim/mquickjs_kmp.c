@@ -23,18 +23,14 @@ typedef struct {
 
 /* One slot per live ref. Slots are malloc'ed individually because the engine keeps
    their JSGCRef linked in an intrusive list and would break if they moved.
-   A ref handle packs the slot index with a generation so a stale handle whose slot was
-   reused is rejected instead of touching another object. */
+   A ref handle packs the slot index (low 32 bits) with a 32-bit generation (high bits)
+   so a stale handle whose slot was reused is rejected instead of touching another object. */
 typedef struct {
     JSGCRef gc;
     int32_t refcount;
     int32_t next_free;
     uint32_t gen;
 } kmp_slot;
-
-#define KMP_REF_INDEX_BITS 20
-#define KMP_REF_INDEX_MASK ((1u << KMP_REF_INDEX_BITS) - 1)
-#define KMP_REF_GEN_MASK ((1u << (31 - KMP_REF_INDEX_BITS)) - 1)
 
 struct kmpjs_engine {
     JSContext *ctx;
@@ -180,23 +176,28 @@ static int kmp_interrupt_handler(JSContext *ctx, void *opaque)
 
 /* ---- ref table ---- */
 
-static int32_t slot_handle(int32_t idx, uint32_t gen)
+static int64_t slot_handle(int32_t idx, uint32_t gen)
 {
-    return (int32_t)(((gen & KMP_REF_GEN_MASK) << KMP_REF_INDEX_BITS) | ((uint32_t)(idx + 1) & KMP_REF_INDEX_MASK));
+    return (int64_t)(((uint64_t)gen << 32) | (uint32_t)(idx + 1));
 }
 
-static kmp_slot *slot_get(kmpjs_engine *e, int32_t ref)
+static int32_t slot_index(int64_t ref)
+{
+    return (int32_t)((uint64_t)ref & 0xFFFFFFFFu) - 1;
+}
+
+static kmp_slot *slot_get(kmpjs_engine *e, int64_t ref)
 {
     kmp_slot *s;
-    int32_t idx = (int32_t)((uint32_t)ref & KMP_REF_INDEX_MASK) - 1;
-    uint32_t gen = ((uint32_t)ref >> KMP_REF_INDEX_BITS) & KMP_REF_GEN_MASK;
+    int32_t idx = slot_index(ref);
+    uint32_t gen = (uint32_t)((uint64_t)ref >> 32);
     if (ref <= 0 || idx < 0 || idx >= e->slot_count)
         return NULL;
     s = e->slots[idx];
-    return (s->refcount > 0 && (s->gen & KMP_REF_GEN_MASK) == gen) ? s : NULL;
+    return (s->refcount > 0 && s->gen == gen) ? s : NULL;
 }
 
-static int32_t slot_new(kmpjs_engine *e, JSValue v)
+static int64_t slot_new(kmpjs_engine *e, JSValue v)
 {
     kmp_slot *s;
     int32_t idx;
@@ -207,7 +208,7 @@ static int32_t slot_new(kmpjs_engine *e, JSValue v)
         s = e->slots[idx];
         e->free_head = s->next_free;
     } else {
-        if (e->slot_count >= (int32_t)KMP_REF_INDEX_MASK)
+        if (e->slot_count == INT32_MAX)
             return 0;
         if (e->slot_count == e->slot_cap) {
             int32_t cap = e->slot_cap ? e->slot_cap * 2 : 16;
@@ -230,9 +231,9 @@ static int32_t slot_new(kmpjs_engine *e, JSValue v)
     return slot_handle(idx, s->gen);
 }
 
-static void slot_free(kmpjs_engine *e, int32_t ref)
+static void slot_free(kmpjs_engine *e, int64_t ref)
 {
-    int32_t idx = (int32_t)((uint32_t)ref & KMP_REF_INDEX_MASK) - 1;
+    int32_t idx = slot_index(ref);
     kmp_slot *s = e->slots[idx];
     JS_DeleteGCRef(e->ctx, &s->gc);
     s->gc.val = JS_UNDEFINED;
@@ -242,14 +243,14 @@ static void slot_free(kmpjs_engine *e, int32_t ref)
     e->free_head = idx;
 }
 
-void kmpjs_ref_retain(kmpjs_engine *e, int32_t ref)
+void kmpjs_ref_retain(kmpjs_engine *e, int64_t ref)
 {
     kmp_slot *s = slot_get(e, ref);
     if (s)
         s->refcount++;
 }
 
-void kmpjs_ref_release(kmpjs_engine *e, int32_t ref)
+void kmpjs_ref_release(kmpjs_engine *e, int64_t ref)
 {
     kmp_slot *s = slot_get(e, ref);
     if (s && --s->refcount == 0)
@@ -648,7 +649,7 @@ static int32_t finish(kmpjs_engine *e, int outermost, JSValue v, int32_t flags, 
     return rc;
 }
 
-int32_t kmpjs_ref_get(kmpjs_engine *e, int32_t ref, const char *name, int32_t flags, kmpjs_value *out)
+int32_t kmpjs_ref_get(kmpjs_engine *e, int64_t ref, const char *name, int32_t flags, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
     int outermost;
@@ -658,7 +659,7 @@ int32_t kmpjs_ref_get(kmpjs_engine *e, int32_t ref, const char *name, int32_t fl
     return finish(e, outermost, JS_GetPropertyStr(e->ctx, s->gc.val, name), flags, out);
 }
 
-int32_t kmpjs_ref_get_index(kmpjs_engine *e, int32_t ref, int32_t index, int32_t flags, kmpjs_value *out)
+int32_t kmpjs_ref_get_index(kmpjs_engine *e, int64_t ref, int32_t index, int32_t flags, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
     int outermost;
@@ -670,7 +671,7 @@ int32_t kmpjs_ref_get_index(kmpjs_engine *e, int32_t ref, int32_t index, int32_t
     return finish(e, outermost, JS_GetPropertyUint32(e->ctx, s->gc.val, (uint32_t)index), flags, out);
 }
 
-int32_t kmpjs_ref_set(kmpjs_engine *e, int32_t ref, const char *name, const kmpjs_value *value, kmpjs_value *out)
+int32_t kmpjs_ref_set(kmpjs_engine *e, int64_t ref, const char *name, const kmpjs_value *value, kmpjs_value *out)
 {
     JSContext *ctx = e->ctx;
     kmp_slot *s = slot_get(e, ref);
@@ -701,7 +702,7 @@ int32_t kmpjs_ref_set(kmpjs_engine *e, int32_t ref, const char *name, const kmpj
     return 0;
 }
 
-int32_t kmpjs_ref_call(kmpjs_engine *e, int32_t ref, int32_t this_ref, const kmpjs_value *args,
+int32_t kmpjs_ref_call(kmpjs_engine *e, int64_t ref, int64_t this_ref, const kmpjs_value *args,
                        int32_t argc, int32_t flags, kmpjs_value *out)
 {
     JSContext *ctx = e->ctx;
@@ -760,7 +761,7 @@ done:
     return rc;
 }
 
-int32_t kmpjs_ref_to_json(kmpjs_engine *e, int32_t ref, kmpjs_value *out)
+int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
     JSValue json;

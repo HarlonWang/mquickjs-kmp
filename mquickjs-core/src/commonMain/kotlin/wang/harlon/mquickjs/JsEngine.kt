@@ -98,7 +98,10 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         return block()?.let { decode(it) } ?: JsValue.Undefined
     }
 
-    internal fun releaseRef(id: Int) {
+    internal val isOpen: Boolean
+        get() = !closed.load()
+
+    internal fun releaseRef(id: Long) {
         if (!closed.load()) native.refRelease(id)
     }
 

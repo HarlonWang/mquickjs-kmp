@@ -15,13 +15,13 @@ internal object NativeBridge {
     @JvmStatic external fun nativeEval(ptr: Long, code: ByteArray, fileName: ByteArray, flags: Int): NativeValue?
     @JvmStatic external fun nativeDefineFunction(ptr: Long, name: ByteArray, id: Int, flags: Int): NativeValue?
     @JvmStatic external fun nativeInterrupt(ptr: Long)
-    @JvmStatic external fun nativeRefRetain(ptr: Long, ref: Int)
-    @JvmStatic external fun nativeRefRelease(ptr: Long, ref: Int)
-    @JvmStatic external fun nativeRefGet(ptr: Long, ref: Int, name: ByteArray, flags: Int): NativeValue?
-    @JvmStatic external fun nativeRefGetIndex(ptr: Long, ref: Int, index: Int, flags: Int): NativeValue?
-    @JvmStatic external fun nativeRefSet(ptr: Long, ref: Int, name: ByteArray, value: NativeValue): NativeValue?
-    @JvmStatic external fun nativeRefCall(ptr: Long, ref: Int, thisRef: Int, args: Array<NativeValue>, flags: Int): NativeValue?
-    @JvmStatic external fun nativeRefToJson(ptr: Long, ref: Int): NativeValue?
+    @JvmStatic external fun nativeRefRetain(ptr: Long, ref: Long)
+    @JvmStatic external fun nativeRefRelease(ptr: Long, ref: Long)
+    @JvmStatic external fun nativeRefGet(ptr: Long, ref: Long, name: ByteArray, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefGetIndex(ptr: Long, ref: Long, index: Int, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefSet(ptr: Long, ref: Long, name: ByteArray, value: NativeValue): NativeValue?
+    @JvmStatic external fun nativeRefCall(ptr: Long, ref: Long, thisRef: Long, args: Array<NativeValue>, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefToJson(ptr: Long, ref: Long): NativeValue?
 
     @JvmStatic
     fun onHostCall(target: Any, id: Int, args: Array<NativeValue?>): NativeValue {

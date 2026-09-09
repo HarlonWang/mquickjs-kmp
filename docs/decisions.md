@@ -56,6 +56,6 @@ Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loa
 
 `evaluate` / `registerFunction` / `JsRef.get` / `invoke` 都带 `objects: ObjectTransport` 参数，一律默认 JSON，包括已经身处 ref 世界的 `JsRef.get`：默认值不应产生需要关闭的句柄。JSON 零泄漏风险、适合"算完给结果"；REF 适合持有回调函数或大对象。放在调用点而不是引擎级配置，是因为同一个引擎里两种用法常常并存。
 
-## JsRuntime 用 `Dispatchers.Default.limitedParallelism(1)`
+## JsRuntime 的互斥来自 Mutex，dispatcher 只决定在哪跑
 
-引擎没有线程亲和（C 侧无线程局部状态，JNI 每次调用取当前 env，K/N 用 StableRef），需要的只是互斥，所以不起专用线程。求值是 CPU 工作，默认走 Default 的单车道；宿主函数会阻塞 I/O 时由调用方传自己的 dispatcher。common 里访问不到 `Dispatchers.IO`（在 common 源集是 internal），也是不选它做默认的原因之一。
+引擎没有线程亲和（C 侧无线程局部状态，JNI 每次调用取当前 env，K/N 用 StableRef），需要的只是互斥。互斥由 `JsRuntime` 内部的 `Mutex` 保证，不依赖调用方传入的 dispatcher 是否单车道，`shutdown` 也在同一把锁下关闭引擎。默认 dispatcher 是 `Dispatchers.Default` 的单车道：求值是 CPU 工作；宿主函数会阻塞 I/O 时由调用方传自己的 dispatcher。common 里访问不到 `Dispatchers.IO`（在 common 源集是 internal），也是不选它做默认的原因之一。

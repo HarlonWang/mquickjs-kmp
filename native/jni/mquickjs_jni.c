@@ -40,9 +40,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
     if (!cls)
         return JNI_ERR;
     g_value = (*env)->NewGlobalRef(env, cls);
-    g_value_ctor = (*env)->GetMethodID(env, g_value, "<init>", "(IID[B[B)V");
+    g_value_ctor = (*env)->GetMethodID(env, g_value, "<init>", "(IJD[B[B)V");
     g_f_tag = (*env)->GetFieldID(env, g_value, "tag", "I");
-    g_f_ref = (*env)->GetFieldID(env, g_value, "ref", "I");
+    g_f_ref = (*env)->GetFieldID(env, g_value, "ref", "J");
     g_f_num = (*env)->GetFieldID(env, g_value, "num", "D");
     g_f_str = (*env)->GetFieldID(env, g_value, "str", "[B");
     g_f_stack = (*env)->GetFieldID(env, g_value, "stack", "[B");
@@ -73,7 +73,7 @@ static jbyteArray new_bytes(JNIEnv *env, const char *p, int32_t len)
 
 static jobject new_value(JNIEnv *env, const kmpjs_value *v)
 {
-    return (*env)->NewObject(env, g_value, g_value_ctor, (jint)v->tag, (jint)v->ref, (jdouble)v->num,
+    return (*env)->NewObject(env, g_value, g_value_ctor, (jint)v->tag, (jlong)v->ref, (jdouble)v->num,
                              new_bytes(env, v->str, v->str_len),
                              new_bytes(env, v->stack, v->stack_len));
 }
@@ -118,7 +118,7 @@ static void read_value(JNIEnv *env, jobject obj, kmpjs_value *v)
         return;
     }
     v->tag = (*env)->GetIntField(env, obj, g_f_tag);
-    v->ref = (*env)->GetIntField(env, obj, g_f_ref);
+    v->ref = (*env)->GetLongField(env, obj, g_f_ref);
     v->num = (*env)->GetDoubleField(env, obj, g_f_num);
     bytes = (*env)->GetObjectField(env, obj, g_f_str);
     v->str = copy_bytes(env, bytes, &v->str_len);
@@ -278,19 +278,19 @@ static char *dup_cstring(JNIEnv *env, jbyteArray arr)
 }
 
 JNIEXPORT void JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefRetain(JNIEnv *env, jclass cls, jlong ptr, jint ref)
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefRetain(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
 {
     kmpjs_ref_retain((kmpjs_engine *)(intptr_t)ptr, ref);
 }
 
 JNIEXPORT void JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefRelease(JNIEnv *env, jclass cls, jlong ptr, jint ref)
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefRelease(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
 {
     kmpjs_ref_release((kmpjs_engine *)(intptr_t)ptr, ref);
 }
 
 JNIEXPORT jobject JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefGet(JNIEnv *env, jclass cls, jlong ptr, jint ref,
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefGet(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
                                                     jbyteArray name, jint flags)
 {
     kmpjs_value out;
@@ -305,7 +305,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeRefGet(JNIEnv *env, jclass cls, jlo
 }
 
 JNIEXPORT jobject JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefGetIndex(JNIEnv *env, jclass cls, jlong ptr, jint ref,
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefGetIndex(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
                                                          jint index, jint flags)
 {
     kmpjs_value out;
@@ -314,7 +314,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeRefGetIndex(JNIEnv *env, jclass cls
 }
 
 JNIEXPORT jobject JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefSet(JNIEnv *env, jclass cls, jlong ptr, jint ref,
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefSet(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
                                                     jbyteArray name, jobject value)
 {
     kmpjs_value out, v;
@@ -331,8 +331,8 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeRefSet(JNIEnv *env, jclass cls, jlo
 }
 
 JNIEXPORT jobject JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefCall(JNIEnv *env, jclass cls, jlong ptr, jint ref,
-                                                     jint this_ref, jobjectArray args, jint flags)
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefCall(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
+                                                     jlong this_ref, jobjectArray args, jint flags)
 {
     kmpjs_value out;
     jsize argc = args ? (*env)->GetArrayLength(env, args) : 0;
@@ -356,7 +356,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeRefCall(JNIEnv *env, jclass cls, jl
 }
 
 JNIEXPORT jobject JNICALL
-Java_wang_harlon_mquickjs_NativeBridge_nativeRefToJson(JNIEnv *env, jclass cls, jlong ptr, jint ref)
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefToJson(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
 {
     kmpjs_value out;
     kmpjs_ref_to_json((kmpjs_engine *)(intptr_t)ptr, ref, &out);

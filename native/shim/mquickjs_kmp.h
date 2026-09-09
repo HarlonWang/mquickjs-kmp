@@ -21,7 +21,7 @@ enum {
     KMPJS_TAG_STRING = 4,
     KMPJS_TAG_OBJECT = 5,    /* str = JSON text, or NULL when not serializable */
     KMPJS_TAG_EXCEPTION = 6, /* str = message, stack = JS stack trace or NULL */
-    KMPJS_TAG_REF = 7,       /* ref = handle into the engine's ref table, num = KMPJS_REF_* kind bits */
+    KMPJS_TAG_REF = 7,       /* ref = 64-bit handle (slot index | generation), num = KMPJS_REF_* kind bits */
 };
 
 /* KMPJS_TAG_REF kind bits carried in kmpjs_value.num */
@@ -37,7 +37,8 @@ enum {
 
 typedef struct {
     int32_t tag;
-    int32_t ref;
+    int32_t reserved;
+    int64_t ref;
     double num;          /* KMPJS_TAG_BOOL: 0 or 1, KMPJS_TAG_NUMBER: the value, KMPJS_TAG_REF: kind bits */
     const char *str;     /* UTF-8 (WTF-8), not NUL terminated */
     int32_t str_len;
@@ -71,15 +72,15 @@ int32_t kmpjs_define_function(kmpjs_engine *e, const char *name, int32_t fn_id, 
 
 /* Refs are reference counted handles to JS objects, valid until released or the engine is destroyed.
    All kmpjs_ref_* calls return 0 on success or -1 with *out holding the exception. */
-void kmpjs_ref_retain(kmpjs_engine *e, int32_t ref);
-void kmpjs_ref_release(kmpjs_engine *e, int32_t ref);
-int32_t kmpjs_ref_get(kmpjs_engine *e, int32_t ref, const char *name, int32_t flags, kmpjs_value *out);
-int32_t kmpjs_ref_get_index(kmpjs_engine *e, int32_t ref, int32_t index, int32_t flags, kmpjs_value *out);
-int32_t kmpjs_ref_set(kmpjs_engine *e, int32_t ref, const char *name, const kmpjs_value *value, kmpjs_value *out);
+void kmpjs_ref_retain(kmpjs_engine *e, int64_t ref);
+void kmpjs_ref_release(kmpjs_engine *e, int64_t ref);
+int32_t kmpjs_ref_get(kmpjs_engine *e, int64_t ref, const char *name, int32_t flags, kmpjs_value *out);
+int32_t kmpjs_ref_get_index(kmpjs_engine *e, int64_t ref, int32_t index, int32_t flags, kmpjs_value *out);
+int32_t kmpjs_ref_set(kmpjs_engine *e, int64_t ref, const char *name, const kmpjs_value *value, kmpjs_value *out);
 /* Calls the function behind `ref` with `this_ref` (0 for undefined) and `args`. */
-int32_t kmpjs_ref_call(kmpjs_engine *e, int32_t ref, int32_t this_ref, const kmpjs_value *args,
+int32_t kmpjs_ref_call(kmpjs_engine *e, int64_t ref, int64_t this_ref, const kmpjs_value *args,
                        int32_t argc, int32_t flags, kmpjs_value *out);
-int32_t kmpjs_ref_to_json(kmpjs_engine *e, int32_t ref, kmpjs_value *out);
+int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out);
 
 /* Safe to call from any thread while the engine is alive. Stops the evaluation in
    progress; a call while no evaluation runs is a no-op. */

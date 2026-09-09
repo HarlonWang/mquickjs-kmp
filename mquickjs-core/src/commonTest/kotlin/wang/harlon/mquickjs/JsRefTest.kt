@@ -155,7 +155,9 @@ class JsRefTest {
         ref.close()
         ref.close()
         val open = engine.ref("({})")
+        assertTrue(open.isValid)
         engine.close()
+        assertTrue(!open.isValid)
         open.close()
         assertFailsWith<IllegalStateException> { open.get("x") }
     }

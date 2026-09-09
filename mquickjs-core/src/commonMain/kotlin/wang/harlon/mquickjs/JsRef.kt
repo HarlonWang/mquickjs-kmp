@@ -10,7 +10,7 @@ package wang.harlon.mquickjs
  */
 public class JsRef internal constructor(
     internal val engine: JsEngine,
-    internal val id: Int,
+    internal val id: Long,
     kind: Int,
 ) : JsValue, AutoCloseable {
     public val isFunction: Boolean = kind and NativeTag.REF_FUNCTION != 0
@@ -18,9 +18,12 @@ public class JsRef internal constructor(
 
     private var closed = false
 
-    /** Whether this handle is still usable; false after [close] or, for host-function arguments, after the call. */
+    /**
+     * Whether this handle is still usable; false after [close], after the engine is closed, or,
+     * for host-function arguments, after the call.
+     */
     public val isValid: Boolean
-        get() = !closed
+        get() = !closed && engine.isOpen
 
     public fun get(name: String, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
         op { native.refGet(id, name, objects.flags) }
@@ -41,7 +44,7 @@ public class JsRef internal constructor(
         objects: ObjectTransport = ObjectTransport.JSON,
     ): JsValue = op {
         thisArg?.let { checkOwned(it) }
-        native.refCall(id, thisArg?.id ?: 0, args.map { encode(it) }, objects.flags)
+        native.refCall(id, thisArg?.id ?: 0L, args.map { encode(it) }, objects.flags)
     }
 
     /** `JSON.stringify` of the object, or null when it cannot be serialized. */

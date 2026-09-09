@@ -28,21 +28,21 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         }
     }
 
-    actual fun refRetain(ref: Int) = NativeBridge.nativeRefRetain(ptr, ref)
+    actual fun refRetain(ref: Long) = NativeBridge.nativeRefRetain(ptr, ref)
 
-    actual fun refRelease(ref: Int) = NativeBridge.nativeRefRelease(ptr, ref)
+    actual fun refRelease(ref: Long) = NativeBridge.nativeRefRelease(ptr, ref)
 
-    actual fun refGet(ref: Int, name: String, flags: Int): RawValue =
+    actual fun refGet(ref: Long, name: String, flags: Int): RawValue =
         result(NativeBridge.nativeRefGet(ptr, ref, Wtf8.encode(name), flags))
 
-    actual fun refGetIndex(ref: Int, index: Int, flags: Int): RawValue =
+    actual fun refGetIndex(ref: Long, index: Int, flags: Int): RawValue =
         result(NativeBridge.nativeRefGetIndex(ptr, ref, index, flags))
 
-    actual fun refSet(ref: Int, name: String, value: RawValue): RawValue =
+    actual fun refSet(ref: Long, name: String, value: RawValue): RawValue =
         result(NativeBridge.nativeRefSet(ptr, ref, Wtf8.encode(name), value.toNative()))
 
-    actual fun refCall(ref: Int, thisRef: Int, args: List<RawValue>, flags: Int): RawValue =
+    actual fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue =
         result(NativeBridge.nativeRefCall(ptr, ref, thisRef, Array(args.size) { args[it].toNative() }, flags))
 
-    actual fun refToJson(ref: Int): RawValue = result(NativeBridge.nativeRefToJson(ptr, ref))
+    actual fun refToJson(ref: Long): RawValue = result(NativeBridge.nativeRefToJson(ptr, ref))
 }

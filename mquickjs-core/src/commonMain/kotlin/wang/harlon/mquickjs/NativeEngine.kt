@@ -8,7 +8,7 @@ internal interface HostCallbacks {
 /** Mirror of `kmpjs_value` (native/shim/mquickjs_kmp.h); the only shape that crosses the native boundary. */
 internal class RawValue(
     val tag: Int,
-    val ref: Int = 0,
+    val ref: Long = 0L,
     val num: Double = 0.0,
     val str: String? = null,
     val stack: String? = null,
@@ -36,13 +36,13 @@ internal expect class NativeEngine(memoryBytes: Int, host: HostCallbacks) {
     fun interrupt()
     fun close()
 
-    fun refRetain(ref: Int)
-    fun refRelease(ref: Int)
-    fun refGet(ref: Int, name: String, flags: Int): RawValue
-    fun refGetIndex(ref: Int, index: Int, flags: Int): RawValue
-    fun refSet(ref: Int, name: String, value: RawValue): RawValue
-    fun refCall(ref: Int, thisRef: Int, args: List<RawValue>, flags: Int): RawValue
-    fun refToJson(ref: Int): RawValue
+    fun refRetain(ref: Long)
+    fun refRelease(ref: Long)
+    fun refGet(ref: Long, name: String, flags: Int): RawValue
+    fun refGetIndex(ref: Long, index: Int, flags: Int): RawValue
+    fun refSet(ref: Long, name: String, value: RawValue): RawValue
+    fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue
+    fun refToJson(ref: Long): RawValue
 }
 
 internal fun Throwable.hostErrorMessage(): String = message ?: this::class.simpleName ?: "host error"

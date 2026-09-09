@@ -82,11 +82,13 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 指定 `ObjectTransport.REF`，对象以活句柄而非 JSON 返回。`JsRef` 可读写属性、按下标访问数组、带 `this` 与参数调用函数，用完必须 close：对象在此之前一直占着引擎的固定内存。
 
 ```kotlin
-val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
-rules.use { r ->
-    r.set("limit", JsValue.Num(10))
-    val check = r.get("check", ObjectTransport.REF) as JsRef
-    check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+JsEngine().use { engine ->
+    val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
+    rules.use { r ->
+        r.set("limit", JsValue.Num(10))
+        val check = r.get("check", ObjectTransport.REF) as JsRef
+        check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+    }
 }
 ```
 
@@ -98,10 +100,19 @@ rules.use { r ->
 
 ```kotlin
 val runtime = JsRuntime()
-runtime.evaluate("for (;;) {}", timeout = 200.milliseconds) // 抛 TimeoutCancellationException，引擎可继续用
-runtime.withEngine { evaluate("1 + 1") }                     // 独占访问，ref 只能在这里面用
-runtime.shutdown()
+try {
+    try {
+        runtime.evaluate("for (;;) {}", timeout = 200.milliseconds)
+    } catch (e: TimeoutCancellationException) {
+        // 脚本已被中断，引擎可继续用
+    }
+    runtime.withEngine { evaluate("1 + 1") } // 独占访问，ref 只能在这里面用
+} finally {
+    runtime.shutdown()
+}
 ```
+
+互斥来自内部的 Mutex，任何 dispatcher 都可以；默认是 `Dispatchers.Default` 的单车道。
 
 ## 文档
 

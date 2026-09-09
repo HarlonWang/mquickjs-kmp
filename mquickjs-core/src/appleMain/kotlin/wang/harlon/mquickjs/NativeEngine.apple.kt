@@ -84,27 +84,27 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         ref.dispose()
     }
 
-    actual fun refRetain(ref: Int) {
+    actual fun refRetain(ref: Long) {
         kmpjs_ref_retain(handle(), ref)
     }
 
-    actual fun refRelease(ref: Int) {
+    actual fun refRelease(ref: Long) {
         engine?.let { kmpjs_ref_release(it, ref) }
     }
 
-    actual fun refGet(ref: Int, name: String, flags: Int): RawValue = memScoped {
+    actual fun refGet(ref: Long, name: String, flags: Int): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         kmpjs_ref_get(handle(), ref, cString(name), flags, out.ptr)
         out.toRaw()
     }
 
-    actual fun refGetIndex(ref: Int, index: Int, flags: Int): RawValue = memScoped {
+    actual fun refGetIndex(ref: Long, index: Int, flags: Int): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         kmpjs_ref_get_index(handle(), ref, index, flags, out.ptr)
         out.toRaw()
     }
 
-    actual fun refSet(ref: Int, name: String, value: RawValue): RawValue = memScoped {
+    actual fun refSet(ref: Long, name: String, value: RawValue): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         val v = alloc<kmpjs_value>()
         value.writeTo(v)
@@ -113,7 +113,7 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         out.toRaw()
     }
 
-    actual fun refCall(ref: Int, thisRef: Int, args: List<RawValue>, flags: Int): RawValue = memScoped {
+    actual fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         val values = allocArray<kmpjs_value>(args.size)
         args.forEachIndexed { i, raw -> raw.writeTo(values[i]) }
@@ -122,7 +122,7 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         out.toRaw()
     }
 
-    actual fun refToJson(ref: Int): RawValue = memScoped {
+    actual fun refToJson(ref: Long): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         kmpjs_ref_to_json(handle(), ref, out.ptr)
         out.toRaw()

@@ -82,11 +82,13 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 Ask for `ObjectTransport.REF` and objects come back as live handles instead of JSON. A `JsRef` reads and writes properties, indexes arrays, calls functions with a `this` and arguments, and must be closed: the object stays in the engine's fixed memory until then.
 
 ```kotlin
-val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
-rules.use { r ->
-    r.set("limit", JsValue.Num(10))
-    val check = r.get("check", ObjectTransport.REF) as JsRef
-    check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+JsEngine().use { engine ->
+    val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
+    rules.use { r ->
+        r.set("limit", JsValue.Num(10))
+        val check = r.get("check", ObjectTransport.REF) as JsRef
+        check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+    }
 }
 ```
 
@@ -98,10 +100,19 @@ Host functions registered with `ObjectTransport.REF` receive refs that live only
 
 ```kotlin
 val runtime = JsRuntime()
-runtime.evaluate("for (;;) {}", timeout = 200.milliseconds) // TimeoutCancellationException, engine stays usable
-runtime.withEngine { evaluate("1 + 1") }                     // exclusive access, refs usable inside
-runtime.shutdown()
+try {
+    try {
+        runtime.evaluate("for (;;) {}", timeout = 200.milliseconds)
+    } catch (e: TimeoutCancellationException) {
+        // the script was interrupted; the engine stays usable
+    }
+    runtime.withEngine { evaluate("1 + 1") } // exclusive access, refs usable inside
+} finally {
+    runtime.shutdown()
+}
 ```
+
+Exclusion comes from an internal mutex, so any dispatcher works; the default is a single lane of `Dispatchers.Default`.
 
 ## Documentation
 
