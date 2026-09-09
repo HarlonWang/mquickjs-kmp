@@ -94,6 +94,21 @@ JsEngine().use { engine ->
 
 Host functions registered with `ObjectTransport.REF` receive refs that live only for the duration of the call; `retain()` keeps one. `engine.stats().liveRefs` tells you how many refs are still open, which is how the SDK's own tests prove nothing leaks.
 
+### Precompiled bytecode
+
+`JsBytecode.compile` turns a script into engine bytecode; `JsEngine.loadBytecode` loads it without parsing and keeps it outside the engine's fixed memory. Load it before anything else runs on the engine (one program per engine, so bundle your scripts into one), register host functions, then run.
+
+```kotlin
+val bytes = JsBytecode.compile(source, "rules.js")   // do this at build time or once on device, then cache
+JsEngine().use { engine ->
+    val program = engine.loadBytecode(bytes)          // must come before evaluate / registerFunction
+    engine.registerFunction("report") { it[0] }
+    program.use { it.run() }
+}
+```
+
+Bytecode is bound to the engine commit of the SDK that produced it (`MQuickJs.upstreamCommit`) and to a word size (`JsBytecode.wordSize`: 64 everywhere except `armeabi-v7a`); mismatches are rejected with a clear `JsException`. Nothing else about the bytes is validated, so only load what this SDK compiled. The host tool `kmpjsc` (`./gradlew :mquickjs-core:buildHostTools`) does the same from the command line.
+
 ### Coroutines: `JsRuntime`
 
 `JsRuntime` serializes every access to one engine on a single-lane dispatcher and maps cancellation and timeouts to engine interrupts.

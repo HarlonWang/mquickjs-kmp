@@ -15,6 +15,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.usePinned
@@ -38,6 +39,10 @@ import wang.harlon.mquickjs.cinterop.kmpjs_ref_retain
 import wang.harlon.mquickjs.cinterop.kmpjs_ref_set
 import wang.harlon.mquickjs.cinterop.kmpjs_ref_to_json
 import wang.harlon.mquickjs.cinterop.kmpjs_stats
+import wang.harlon.mquickjs.cinterop.kmpjs_compile
+import wang.harlon.mquickjs.cinterop.kmpjs_load_bytecode
+import wang.harlon.mquickjs.cinterop.kmpjs_run_program
+import wang.harlon.mquickjs.cinterop.kmpjs_word_size
 import wang.harlon.mquickjs.cinterop.kmpjs_value
 
 @OptIn(ExperimentalForeignApi::class)
@@ -143,6 +148,22 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         out.toRaw()
     }
 
+    actual fun loadBytecode(bytes: ByteArray): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        if (bytes.isEmpty()) {
+            kmpjs_load_bytecode(handle(), null, 0, out.ptr)
+        } else {
+            bytes.usePinned { kmpjs_load_bytecode(handle(), it.addressOf(0).reinterpret(), bytes.size, out.ptr) }
+        }
+        out.toRaw()
+    }
+
+    actual fun runProgram(ref: Long, flags: Int): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        kmpjs_run_program(handle(), ref, flags, out.ptr)
+        out.toRaw()
+    }
+
     private companion object {
         // 任何异常都不能离开 staticCFunction：Kotlin/Native 异常越过 C 边界会终止进程
         val hostCallback = staticCFunction { user: COpaquePointer?, id: Int, args: CPointer<kmpjs_value>?, argc: Int, result: CPointer<kmpjs_value>? ->
@@ -167,6 +188,29 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
             } catch (_: Throwable) {
             }
         }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal actual object NativeCompiler {
+    actual fun wordSize(): Int = kmpjs_word_size()
+
+    actual fun compile(script: String, fileName: String, wordSize: Int, flags: Int): Any = memScoped {
+        val out = alloc<kmpjs_value>()
+        val name = cString(fileName)
+        val code = Wtf8.encode(script)
+        val rc = if (code.isEmpty()) {
+            kmpjs_compile(null, 0, name, wordSize, flags, out.ptr)
+        } else {
+            code.usePinned { kmpjs_compile(it.addressOf(0), code.size, name, wordSize, flags, out.ptr) }
+        }
+        val result: Any = if (rc == 0) {
+            out.str?.readBytes(out.str_len) ?: ByteArray(0)
+        } else {
+            out.toRaw()
+        }
+        kmpjs_free(out.str)
+        result
     }
 }
 

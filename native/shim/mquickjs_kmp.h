@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define KMPJS_ABI_VERSION 3
+#define KMPJS_ABI_VERSION 4
 
 typedef struct kmpjs_engine kmpjs_engine;
 
@@ -85,6 +85,31 @@ int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out);
 /* Safe to call from any thread while the engine is alive. Stops the evaluation in
    progress; a call while no evaluation runs is a no-op. */
 void kmpjs_interrupt(kmpjs_engine *e);
+
+/* ---- precompiled bytecode ----
+   Bytecode is bound to the exact engine (native/UPSTREAM commit) and word size that produced it;
+   kmpjs_load_bytecode rejects anything else with a clear message. It is not validated beyond that. */
+
+#define KMPJS_BYTECODE_HEADER_SIZE 52
+
+enum {
+    KMPJS_COMPILE_STRIP_COLUMNS = 1, /* drop column numbers from debug info to save space */
+};
+
+int32_t kmpjs_word_size(void); /* 32 or 64: the bytecode flavour this engine build runs */
+
+/* Compiles `code` for `word_size` (a 64-bit engine can emit both, a 32-bit one only 32).
+   On success returns 0 with out->str/str_len holding the bytecode, allocated with kmpjs_alloc
+   and owned by the caller; on failure returns -1 with out->str (also caller-owned) holding the message. */
+int32_t kmpjs_compile(const char *code, int32_t code_len, const char *filename,
+                      int32_t word_size, int32_t flags, kmpjs_value *out);
+
+/* Loads bytecode into an engine that has not defined any script or host function yet, returning
+   a ref to the program (0 on success, -1 with *out holding the error). The engine keeps its own
+   copy of the bytes for its whole lifetime. The engine accepts 1 program(s) (upstream limit). */
+int32_t kmpjs_load_bytecode(kmpjs_engine *e, const uint8_t *buf, int32_t len, kmpjs_value *out);
+/* Runs a program loaded by kmpjs_load_bytecode; result semantics match kmpjs_eval. */
+int32_t kmpjs_run_program(kmpjs_engine *e, int64_t ref, int32_t flags, kmpjs_value *out);
 
 typedef struct {
     int32_t live_refs;  /* outstanding releases: every retain adds one */

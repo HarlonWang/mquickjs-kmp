@@ -12,6 +12,20 @@
 
 #define KMP_CFUNCTION_HOST (JS_CFUNCTION_USER + 0)
 #define KMP_MIN_MEM 4096
+#define KMP_COMPILE_MEM (16 * 1024 * 1024) /* same as mqjs; transient, freed after compile */
+
+#ifndef KMPJS_UPSTREAM_COMMIT
+#error "KMPJS_UPSTREAM_COMMIT must be defined (CMake reads it from native/UPSTREAM)"
+#endif
+
+/* File header in front of the engine's own JSBytecodeHeader; all fields little endian, 52 bytes. */
+typedef struct {
+    char magic[4];       /* "MQKB" */
+    uint32_t header_len; /* KMPJS_BYTECODE_HEADER_SIZE */
+    uint16_t word_size;  /* 32 or 64 */
+    uint16_t flags;
+    char upstream[40];   /* engine commit the bytecode was produced with */
+} kmpjs_bc_header;
 
 enum { KMP_IDLE = 0, KMP_RUNNING = 1, KMP_INTERRUPTED = 2 };
 
@@ -32,9 +46,15 @@ typedef struct {
     uint32_t gen;
 } kmp_slot;
 
+typedef struct kmp_block {
+    struct kmp_block *next;
+    uint8_t data[];
+} kmp_block;
+
 struct kmpjs_engine {
     JSContext *ctx;
     uint8_t *mem;
+    kmp_block *blocks; /* loaded bytecode; must outlive the context */
     void *user;
     kmpjs_host_fn host;
     kmpjs_log_fn log;
@@ -332,6 +352,11 @@ void kmpjs_destroy(kmpjs_engine *e)
     for (i = 0; i < e->slot_count; i++)
         free(e->slots[i]);
     free(e->slots);
+    while (e->blocks) {
+        kmp_block *next = e->blocks->next;
+        free(e->blocks);
+        e->blocks = next;
+    }
     buf_free(&e->out_str);
     buf_free(&e->out_stack);
     buf_free(&e->log_line);
@@ -804,4 +829,212 @@ int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out)
     }
     run_end(e, outermost);
     return rc;
+}
+
+/* ---- precompiled bytecode ---- */
+
+static int out_has(const kmpjs_value *v, const char *needle)
+{
+    size_t n = strlen(needle);
+    int32_t i;
+    if (!v->str || v->str_len < (int32_t)n)
+        return 0;
+    for (i = 0; i + (int32_t)n <= v->str_len; i++) {
+        if (memcmp(v->str + i, needle, n) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+int32_t kmpjs_word_size(void)
+{
+    return JSW * 8;
+}
+
+static int32_t owned_message(kmpjs_value *out, const char *msg)
+{
+    size_t len = strlen(msg);
+    memset(out, 0, sizeof(*out));
+    out->tag = KMPJS_TAG_EXCEPTION;
+    out->str = kmpjs_alloc((int32_t)len);
+    if (out->str) {
+        memcpy((char *)out->str, msg, len);
+        out->str_len = (int32_t)len;
+    }
+    return -1;
+}
+
+static void capture_write_func(void *opaque, const void *buf, size_t buf_len)
+{
+    buf_append((kmp_buf *)opaque, buf, buf_len);
+}
+
+/* The compile context cannot call toString (no RAM atoms allowed), so the exception is printed
+   the way mqjs does it: first line is the message, the rest is the backtrace. */
+static int32_t owned_exception(JSContext *ctx, kmpjs_value *out)
+{
+    kmp_buf text = {0};
+    JSValue exc = JS_GetException(ctx);
+    char *nl;
+
+    JS_SetContextOpaque(ctx, &text);
+    JS_SetLogFunc(ctx, capture_write_func);
+    JS_PrintValueF(ctx, exc, JS_DUMP_LONG);
+    buf_append(&text, "", 1);
+    nl = strchr(text.data, '\n');
+    if (nl)
+        *nl = '\0';
+    owned_message(out, text.data);
+    if (nl && nl[1]) {
+        size_t rest = strlen(nl + 1);
+        out->stack = kmpjs_alloc((int32_t)rest);
+        if (out->stack) {
+            memcpy((char *)out->stack, nl + 1, rest);
+            out->stack_len = (int32_t)rest;
+        }
+    }
+    buf_free(&text);
+    return -1;
+}
+
+int32_t kmpjs_compile(const char *code, int32_t code_len, const char *filename,
+                      int32_t word_size, int32_t flags, kmpjs_value *out)
+{
+    uint8_t *mem;
+    JSContext *ctx;
+    JSValue val;
+    union {
+        JSBytecodeHeader hdr;
+#if JSW == 8
+        JSBytecodeHeader32 hdr32;
+#endif
+    } hdr_buf;
+    kmpjs_bc_header file_hdr;
+    const uint8_t *data;
+    uint32_t data_len, hdr_len;
+    int parse_flags = JS_EVAL_RETVAL | ((flags & KMPJS_COMPILE_STRIP_COLUMNS) ? JS_EVAL_STRIP_COL : 0);
+    char *result;
+    int32_t rc;
+
+    if (word_size != 32 && word_size != 64)
+        return owned_message(out, "word size must be 32 or 64");
+    if (word_size > JSW * 8)
+        return owned_message(out, "a 32-bit engine cannot produce 64-bit bytecode");
+    mem = malloc(KMP_COMPILE_MEM);
+    if (!mem)
+        return owned_message(out, "out of memory");
+    ctx = JS_NewContext2(mem, KMP_COMPILE_MEM, &js_stdlib, 1);
+    if (!ctx) {
+        free(mem);
+        return owned_message(out, "could not create compile context");
+    }
+    val = parse_terminated(ctx, code, code_len, filename, parse_flags, 0);
+    if (JS_IsException(val)) {
+        rc = owned_exception(ctx, out);
+        goto done;
+    }
+#if JSW == 8
+    if (word_size == 32) {
+        if (JS_PrepareBytecode64to32(ctx, &hdr_buf.hdr32, &data, &data_len, val)) {
+            rc = owned_message(out, "could not convert the bytecode to 32 bits");
+            goto done;
+        }
+        hdr_len = sizeof(JSBytecodeHeader32);
+    } else
+#endif
+    {
+        JS_PrepareBytecode(ctx, &hdr_buf.hdr, &data, &data_len, val);
+        /* relocate to zero so the output is deterministic and position independent */
+        JS_RelocateBytecode2(ctx, &hdr_buf.hdr, (uint8_t *)data, data_len, 0, 0);
+        hdr_len = sizeof(JSBytecodeHeader);
+    }
+    memset(&file_hdr, 0, sizeof(file_hdr));
+    memcpy(file_hdr.magic, "MQKB", 4);
+    file_hdr.header_len = KMPJS_BYTECODE_HEADER_SIZE;
+    file_hdr.word_size = (uint16_t)word_size;
+    memcpy(file_hdr.upstream, KMPJS_UPSTREAM_COMMIT, sizeof(file_hdr.upstream));
+    result = kmpjs_alloc((int32_t)(sizeof(file_hdr) + hdr_len + data_len));
+    if (!result) {
+        rc = owned_message(out, "out of memory");
+        goto done;
+    }
+    memcpy(result, &file_hdr, sizeof(file_hdr));
+    memcpy(result + sizeof(file_hdr), &hdr_buf, hdr_len);
+    memcpy(result + sizeof(file_hdr) + hdr_len, data, data_len);
+    memset(out, 0, sizeof(*out));
+    out->tag = KMPJS_TAG_STRING;
+    out->str = result;
+    out->str_len = (int32_t)(sizeof(file_hdr) + hdr_len + data_len);
+    rc = 0;
+done:
+    JS_FreeContext(ctx);
+    free(mem);
+    return rc;
+}
+
+int32_t kmpjs_load_bytecode(kmpjs_engine *e, const uint8_t *buf, int32_t len, kmpjs_value *out)
+{
+    kmpjs_bc_header hdr;
+    kmp_block *block;
+    size_t body_len;
+    JSValue val;
+    int64_t ref;
+
+    if (len < (int32_t)sizeof(hdr) || memcmp(buf, "MQKB", 4) != 0)
+        return fail_message(e, out, "not MQuickJS bytecode produced by this SDK");
+    memcpy(&hdr, buf, sizeof(hdr));
+    if (hdr.header_len != KMPJS_BYTECODE_HEADER_SIZE)
+        return fail_message(e, out, "unsupported bytecode header");
+    if (hdr.word_size != JSW * 8) {
+        char msg[96];
+        snprintf(msg, sizeof msg, "bytecode built for a %d-bit engine, this engine is %d-bit", hdr.word_size, JSW * 8);
+        return fail_message(e, out, msg);
+    }
+    if (memcmp(hdr.upstream, KMPJS_UPSTREAM_COMMIT, sizeof(hdr.upstream)) != 0) {
+        char msg[160];
+        snprintf(msg, sizeof msg, "bytecode built for engine %.12s, this SDK embeds engine %.12s", hdr.upstream, KMPJS_UPSTREAM_COMMIT);
+        return fail_message(e, out, msg);
+    }
+    body_len = (size_t)len - sizeof(hdr);
+    if (body_len < sizeof(JSBytecodeHeader) || !JS_IsBytecode(buf + sizeof(hdr), body_len))
+        return fail_message(e, out, "bytecode body is corrupt");
+    /* JSValue alignment: the flexible member sits after one pointer, keep the data 8-aligned */
+    block = malloc(sizeof(*block) + body_len + 8);
+    if (!block)
+        return fail_message(e, out, "out of memory");
+    memcpy(block->data, buf + sizeof(hdr), body_len);
+    if (JS_RelocateBytecode(e->ctx, block->data, (uint32_t)body_len)) {
+        free(block);
+        return fail_message(e, out, "could not relocate bytecode");
+    }
+    val = JS_LoadBytecode(e->ctx, block->data);
+    if (JS_IsException(val)) {
+        free(block);
+        exception_to_out(e, out);
+        /* the engine's messages describe its atom tables; say what the caller can act on instead */
+        if (out_has(out, "no atom must be defined in RAM"))
+            return fail_message(e, out, "bytecode must be loaded before any script is evaluated or host function registered");
+        if (out_has(out, "too many rom atom tables"))
+            return fail_message(e, out, "this engine already holds its bytecode program; one program per engine");
+        return -1;
+    }
+    block->next = e->blocks;
+    e->blocks = block;
+    ref = slot_new(e, val);
+    if (!ref)
+        return fail_message(e, out, "out of memory");
+    memset(out, 0, sizeof(*out));
+    out->tag = KMPJS_TAG_REF;
+    out->ref = ref;
+    return 0;
+}
+
+int32_t kmpjs_run_program(kmpjs_engine *e, int64_t ref, int32_t flags, kmpjs_value *out)
+{
+    kmp_slot *s = slot_get(e, ref);
+    int outermost;
+    if (!s)
+        return fail_message(e, out, "invalid or released program ref");
+    outermost = run_begin(e);
+    return finish(e, outermost, JS_Run(e->ctx, s->gc.val), flags, out);
 }

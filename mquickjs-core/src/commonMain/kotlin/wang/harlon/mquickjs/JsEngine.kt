@@ -84,6 +84,20 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         }
     }
 
+    /**
+     * Loads bytecode produced by [JsBytecode.compile] for this SDK version and word size.
+     * Must be called before any [evaluate] or [registerFunction] on this engine (the engine
+     * requires an empty atom table), and only once per engine: bundle everything into one script.
+     * Register host functions afterwards, then [JsProgram.run].
+     * @throws JsException when the bytecode was built for another engine or word size, is corrupt,
+     * or the engine already ran script
+     */
+    public fun loadBytecode(bytes: ByteArray): JsProgram {
+        checkOpen()
+        val ref = decode(native.loadBytecode(bytes)) as JsRef
+        return JsProgram(this, ref.id)
+    }
+
     /** Diagnostics: how many refs are alive. Useful in tests to prove nothing leaked. */
     public fun stats(): JsEngineStats {
         checkOpen()

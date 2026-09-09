@@ -49,4 +49,19 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
     actual fun stats(): IntArray = NativeBridge.nativeStats(ptr) ?: throw JsException("native call failed")
 
     actual fun dumpMemory(): RawValue = result(NativeBridge.nativeDumpMemory(ptr))
+
+    actual fun loadBytecode(bytes: ByteArray): RawValue = result(NativeBridge.nativeLoadBytecode(ptr, bytes))
+
+    actual fun runProgram(ref: Long, flags: Int): RawValue = result(NativeBridge.nativeRunProgram(ptr, ref, flags))
+}
+
+internal actual object NativeCompiler {
+    actual fun wordSize(): Int = NativeBridge.nativeWordSize()
+
+    actual fun compile(script: String, fileName: String, wordSize: Int, flags: Int): Any =
+        when (val r = NativeBridge.nativeCompile(Wtf8.encode(script), Wtf8.encode(fileName), wordSize, flags)) {
+            is ByteArray -> r
+            is NativeValue -> r.toRaw()
+            else -> throw JsException("native compile failed")
+        }
 }

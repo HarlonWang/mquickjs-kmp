@@ -30,7 +30,7 @@ commonMain      JsEngine / JsValue / JsRef / JsException（expect 声明 + 纯 K
 - 中断走上游的 `JS_SetInterruptHandler`，引擎状态是 C11 `atomic_int` 的 idle / running / interrupted 三态机：求值开始 CAS 进入 running，`interrupt()` 只在 running 时 CAS 成 interrupted，空闲时调用是 no-op，嵌套求值不改状态。脚本以 `InternalError: interrupted` 终止，引擎随后可继续使用。
 - 宿主回调（宿主函数、logger）里的 Kotlin 异常一律在回调内截住：Kotlin/Native 异常越过 C 边界会终止进程。宿主函数异常转成 JS `Error`，logger 异常吞掉。
 - 引擎的解析器会读到输入末尾之后一个字节，shim 把所有源码与 JSON 拷贝成 NUL 结尾再交给引擎。
-- 字节码不做校验、不保证跨版本兼容，只加载可信来源；字节码缓存 key 必须包含上游 commit 与目标字长。
+- 字节码：`kmpjs_compile` 在一个临时的 `prepare_compilation` 上下文里 Parse + Prepare，输出前置一个 52 字节文件头（magic、字长、上游 commit）；`kmpjs_load_bytecode` 先核对文件头再交给引擎重定位，字节拷贝进引擎持有的块，活到上下文销毁。引擎要求加载时 RAM 里还没有 atom，所以加载必须先于任何 evaluate / registerFunction，且 ROM atom 表数量上限决定了每个引擎只能加载一个程序；`JS_LoadBytecode` 只返回主函数，`kmpjs_run_program` 再 `JS_Run`，中间可以注册宿主函数。除文件头外不校验内容。
 
 ## 公共 API 边界
 

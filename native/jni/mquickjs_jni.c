@@ -385,3 +385,64 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeDumpMemory(JNIEnv *env, jclass cls,
     kmpjs_dump_memory((kmpjs_engine *)(intptr_t)ptr, &out);
     return new_value(env, &out);
 }
+
+/* ---- bytecode ---- */
+
+JNIEXPORT jint JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeWordSize(JNIEnv *env, jclass cls)
+{
+    return kmpjs_word_size();
+}
+
+/* Returns a byte[] with the bytecode, or a NativeValue carrying the error. */
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeCompile(JNIEnv *env, jclass cls, jbyteArray code,
+                                                     jbyteArray filename, jint word_size, jint flags)
+{
+    kmpjs_value out;
+    jsize code_len = (*env)->GetArrayLength(env, code);
+    char *code_buf = malloc((size_t)code_len + 1);
+    char *name_buf = dup_cstring(env, filename);
+    jobject res;
+
+    if (!code_buf || !name_buf) {
+        free(code_buf);
+        free(name_buf);
+        return NULL;
+    }
+    (*env)->GetByteArrayRegion(env, code, 0, code_len, (jbyte *)code_buf);
+    code_buf[code_len] = '\0';
+    if (kmpjs_compile(code_buf, code_len, name_buf, word_size, flags, &out) == 0) {
+        res = new_bytes(env, out.str, out.str_len);
+    } else {
+        res = new_value(env, &out);
+    }
+    kmpjs_free((void *)out.str);
+    free(code_buf);
+    free(name_buf);
+    return res;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeLoadBytecode(JNIEnv *env, jclass cls, jlong ptr, jbyteArray bytes)
+{
+    kmpjs_value out;
+    jsize len = (*env)->GetArrayLength(env, bytes);
+    uint8_t *buf = malloc((size_t)len + 1);
+    jobject res;
+    if (!buf)
+        return NULL;
+    (*env)->GetByteArrayRegion(env, bytes, 0, len, (jbyte *)buf);
+    kmpjs_load_bytecode((kmpjs_engine *)(intptr_t)ptr, buf, len, &out);
+    res = new_value(env, &out);
+    free(buf);
+    return res;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRunProgram(JNIEnv *env, jclass cls, jlong ptr, jlong ref, jint flags)
+{
+    kmpjs_value out;
+    kmpjs_run_program((kmpjs_engine *)(intptr_t)ptr, ref, flags, &out);
+    return new_value(env, &out);
+}
