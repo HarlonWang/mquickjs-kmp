@@ -29,3 +29,7 @@ Android 用 AAR 内置 `.so`；Apple 用 cinterop 的 `staticLibraries` 把 `.a`
 ## 本期不引入的依赖
 
 kotlinx-serialization、atomicfu、kotlinx-benchmark、Dokka 都到对应里程碑再加（见 roadmap.md），避免第一版就背一堆没用上的依赖。
+
+## API 守门：BCV 只覆盖 klib 目标
+
+binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multiplatform.library` 插件的 Android 编译，`apiDump` 只产出 `mquickjs-core.klib.api`（iOS 与 macOS）。Android 侧的 ABI 目前没有守门，公共 API 在 commonMain 单一来源，klib 的 dump 已能覆盖签名变化；等 BCV 支持该插件后再补 JVM dump。

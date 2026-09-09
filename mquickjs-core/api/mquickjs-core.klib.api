@@ -1,0 +1,14 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64, macosArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <mquickjs-kmp:mquickjs-core>
+final object wang.harlon.mquickjs/MQuickJs { // wang.harlon.mquickjs/MQuickJs|null[0]
+    final val sdkVersion // wang.harlon.mquickjs/MQuickJs.sdkVersion|{}sdkVersion[0]
+        final fun <get-sdkVersion>(): kotlin/String // wang.harlon.mquickjs/MQuickJs.sdkVersion.<get-sdkVersion>|<get-sdkVersion>(){}[0]
+    final val upstreamCommit // wang.harlon.mquickjs/MQuickJs.upstreamCommit|{}upstreamCommit[0]
+        final fun <get-upstreamCommit>(): kotlin/String // wang.harlon.mquickjs/MQuickJs.upstreamCommit.<get-upstreamCommit>|<get-upstreamCommit>(){}[0]
+}

@@ -8,7 +8,7 @@ plugins {
 }
 
 // native/UPSTREAM 是上游 commit 的唯一真值，编译期注入到 BuildInfo，运行时可查引擎来源
-val upstreamCommit = providers
+val upstreamCommitFromPin = providers
     .fileContents(rootProject.layout.projectDirectory.file("native/UPSTREAM"))
     .asText
     .map { text ->
@@ -19,26 +19,37 @@ val upstreamCommit = providers
             ?: error("native/UPSTREAM has no commit= line")
     }
 
-val generateBuildInfo = tasks.register("generateBuildInfo") {
-    val outDir = layout.buildDirectory.dir("generated/buildinfo/commonMain/kotlin")
-    val sdkVersion = property("VERSION_NAME") as String
-    inputs.property("sdkVersion", sdkVersion)
-    inputs.property("upstreamCommit", upstreamCommit)
-    outputs.dir(outDir)
-    doLast {
-        val file = outDir.get().file("wang/harlon/mquickjs/BuildInfo.kt").asFile
+abstract class GenerateBuildInfo : DefaultTask() {
+    @get:Input
+    abstract val sdkVersion: Property<String>
+
+    @get:Input
+    abstract val upstreamCommit: Property<String>
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val file = outputDir.get().file("wang/harlon/mquickjs/BuildInfo.kt").asFile
         file.parentFile.mkdirs()
         file.writeText(
             """
             |package wang.harlon.mquickjs
             |
             |internal object BuildInfo {
-            |    const val SDK_VERSION: String = "$sdkVersion"
+            |    const val SDK_VERSION: String = "${sdkVersion.get()}"
             |    const val UPSTREAM_COMMIT: String = "${upstreamCommit.get()}"
             |}
             |""".trimMargin()
         )
     }
+}
+
+val generateBuildInfo = tasks.register<GenerateBuildInfo>("generateBuildInfo") {
+    sdkVersion.set(providers.gradleProperty("VERSION_NAME"))
+    upstreamCommit.set(upstreamCommitFromPin)
+    outputDir.set(layout.buildDirectory.dir("generated/buildinfo/commonMain/kotlin"))
 }
 
 kotlin {
@@ -118,5 +129,12 @@ mavenPublishing {
             connection.set("scm:git:git://github.com/HarlonWang/mquickjs-kmp.git")
             developerConnection.set("scm:git:ssh://git@github.com/HarlonWang/mquickjs-kmp.git")
         }
+    }
+}
+
+@OptIn(kotlinx.validation.ExperimentalBCVApi::class)
+apiValidation {
+    klib {
+        enabled = true
     }
 }

@@ -5,7 +5,7 @@
 ```
 native/
 ├── UPSTREAM     上游 commit 锁定（唯一真值，Gradle 读取后注入 BuildInfo）
-├── upstream/    bellard/mquickjs，git subtree，禁止直接修改
+├── mquickjs/    bellard/mquickjs，git subtree，禁止直接修改（不叫 upstream：macOS 不区分大小写，会与 UPSTREAM 文件撞名）
 ├── patches/     对上游的补丁，构建时 apply
 ├── shim/        mquickjs_kmp.c/.h
 ├── stdlib/      SDK 自带 stdlib 定义（含 trampoline）
