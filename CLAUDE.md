@@ -26,6 +26,7 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 - 原生链路：`buildHostTool` → `generateStdlib64/32` → `buildNative*`（CMake）→ Android `collectJniLibs` / Apple cinterop，全部由 Gradle 驱动，详见 docs/native-build.md
 - macOS 单测（最快的反馈）：`./gradlew :mquickjs-core:macosArm64Test`
 - Android host test（真实 JNI 路径，不需要模拟器）：`./gradlew :mquickjs-core:testAndroidHostTest`
+- shim 的 C 测试（DEBUG_GC + ASan）：`./gradlew :mquickjs-core:nativeShimTest`，改 shim 必跑
 - Android 设备测试（需模拟器在线）：`./gradlew :mquickjs-core:connectedAndroidDeviceTest`
 - iOS 只编译：`./gradlew :mquickjs-core:compileKotlinIosArm64 :mquickjs-core:compileKotlinIosSimulatorArm64`
-- 改 shim 时先用 ASan 在宿主上跑一遍 C 冒烟（`native/shim` + 生成头 + 引擎四个 .c 直接 `cc -fsanitize=address`），比走 Gradle 快得多
+- 改 shim 时新增的行为要在 `native/test/shim_test.c` 里加 CHECK

@@ -25,6 +25,8 @@ import wang.harlon.mquickjs.cinterop.kmpjs_alloc
 import wang.harlon.mquickjs.cinterop.kmpjs_create
 import wang.harlon.mquickjs.cinterop.kmpjs_define_function
 import wang.harlon.mquickjs.cinterop.kmpjs_destroy
+import wang.harlon.mquickjs.cinterop.kmpjs_dump_memory
+import wang.harlon.mquickjs.cinterop.kmpjs_get_stats
 import wang.harlon.mquickjs.cinterop.kmpjs_eval
 import wang.harlon.mquickjs.cinterop.kmpjs_free
 import wang.harlon.mquickjs.cinterop.kmpjs_interrupt
@@ -35,6 +37,7 @@ import wang.harlon.mquickjs.cinterop.kmpjs_ref_release
 import wang.harlon.mquickjs.cinterop.kmpjs_ref_retain
 import wang.harlon.mquickjs.cinterop.kmpjs_ref_set
 import wang.harlon.mquickjs.cinterop.kmpjs_ref_to_json
+import wang.harlon.mquickjs.cinterop.kmpjs_stats
 import wang.harlon.mquickjs.cinterop.kmpjs_value
 
 @OptIn(ExperimentalForeignApi::class)
@@ -125,6 +128,18 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
     actual fun refToJson(ref: Long): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
         kmpjs_ref_to_json(handle(), ref, out.ptr)
+        out.toRaw()
+    }
+
+    actual fun stats(): IntArray = memScoped {
+        val st = alloc<kmpjs_stats>()
+        kmpjs_get_stats(handle(), st.ptr)
+        intArrayOf(st.live_refs, st.ref_slots)
+    }
+
+    actual fun dumpMemory(): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        kmpjs_dump_memory(handle(), out.ptr)
         out.toRaw()
     }
 

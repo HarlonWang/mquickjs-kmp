@@ -33,6 +33,7 @@ jobs:
       - name: Build and test
         run: >
           ./gradlew
+          :mquickjs-core:nativeShimTest
           :mquickjs-core:macosArm64Test
           :mquickjs-core:testAndroidHostTest
           :mquickjs-core:compileKotlinIosArm64

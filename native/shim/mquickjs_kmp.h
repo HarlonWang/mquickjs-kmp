@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define KMPJS_ABI_VERSION 2
+#define KMPJS_ABI_VERSION 3
 
 typedef struct kmpjs_engine kmpjs_engine;
 
@@ -85,6 +85,15 @@ int32_t kmpjs_ref_to_json(kmpjs_engine *e, int64_t ref, kmpjs_value *out);
 /* Safe to call from any thread while the engine is alive. Stops the evaluation in
    progress; a call while no evaluation runs is a no-op. */
 void kmpjs_interrupt(kmpjs_engine *e);
+
+typedef struct {
+    int32_t live_refs;  /* outstanding releases: every retain adds one */
+    int32_t ref_slots;  /* slots allocated so far (live + reusable) */
+} kmpjs_stats;
+
+void kmpjs_get_stats(kmpjs_engine *e, kmpjs_stats *stats);
+/* Text summary of the engine heap (JS_DumpMemory) in out->str; diagnostics only. */
+void kmpjs_dump_memory(kmpjs_engine *e, kmpjs_value *out);
 
 char *kmpjs_alloc(int32_t len);
 void kmpjs_free(void *p);

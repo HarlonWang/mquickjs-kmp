@@ -47,9 +47,9 @@ NDK 版本固定在 version catalog 的 `android-ndk`，不用 AGP 默认值，�
 
 Android host test 走宿主编译的 JNI 库：`buildNativeHostJni` 以 `-DMQJS_HOST_JNI=ON` 在本机编出 `libmquickjs_kmp.dylib`（Linux 为 `.so`），`testAndroidHostTest` 通过 `java.library.path` 加载。JDK 头文件按 `JAVA_HOME` → daemon 的 `java.home` → `/Library/Java/JavaVirtualMachines/*` 顺序找第一个带 `include/jni.h` 的（Android Studio 的 JBR 没有头文件）。设备测试仍走 `connectedAndroidDeviceTest`。
 
-## 调试宿主
+## 调试宿主：DEBUG_GC + ASan 的 shim 测试
 
-`macosArm64` 是 DEBUG_GC 与 ASan 的运行宿主：上游的 `DEBUG_GC` 开关让每次分配都移动对象，桥接层的野指针会立即暴露。调试版原生库只链接到测试，不进发布产物。
+`native/test/shim_test.c` 是直接对 C API 的断言测试，由 `buildNativeShimTest` 以 `-DMQJS_SHIM_TEST=ON -DMQJS_DEBUG_GC=ON -DMQJS_ASAN=ON -DCMAKE_BUILD_TYPE=Debug` 在宿主上编译，`nativeShimTest` 运行并挂在 `check` 下、CI 门禁里。上游的 `DEBUG_GC` 让每次分配都触发 GC 并挪动对象（靠缩小一个 dummy block 改变地址，有限次后会打印 warning 停止挪动），shim 里任何拿着过期 `JSValue` 的地方第一次分配就会炸；ASan 抓越界与悬垂。Kotlin 层不持有 `JSValue`，所以 DEBUG_GC 只需覆盖 C 层，不为它单独编 K/N 测试库。`DEBUG_GC` 依赖 `assert`，构建类型必须是 Debug（Release 会定义 `NDEBUG`）。
 
 ## 字节码
 

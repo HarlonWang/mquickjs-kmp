@@ -88,9 +88,11 @@ final class wang.harlon.mquickjs/JsEngine : kotlin/AutoCloseable { // wang.harlo
     constructor <init>(wang.harlon.mquickjs/JsEngineConfig = ...) // wang.harlon.mquickjs/JsEngine.<init>|<init>(wang.harlon.mquickjs.JsEngineConfig){}[0]
 
     final fun close() // wang.harlon.mquickjs/JsEngine.close|close(){}[0]
+    final fun dumpMemory(): kotlin/String // wang.harlon.mquickjs/JsEngine.dumpMemory|dumpMemory(){}[0]
     final fun evaluate(kotlin/String, kotlin/String = ..., wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsEngine.evaluate|evaluate(kotlin.String;kotlin.String;wang.harlon.mquickjs.ObjectTransport){}[0]
     final fun interrupt() // wang.harlon.mquickjs/JsEngine.interrupt|interrupt(){}[0]
     final fun registerFunction(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ..., wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsEngine.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.ObjectTransport;wang.harlon.mquickjs.JsHostFunction){}[0]
+    final fun stats(): wang.harlon.mquickjs/JsEngineStats // wang.harlon.mquickjs/JsEngine.stats|stats(){}[0]
 }
 
 final class wang.harlon.mquickjs/JsEngineConfig { // wang.harlon.mquickjs/JsEngineConfig|null[0]
@@ -107,6 +109,17 @@ final class wang.harlon.mquickjs/JsEngineConfig { // wang.harlon.mquickjs/JsEngi
         final const val MIN_MEMORY_BYTES // wang.harlon.mquickjs/JsEngineConfig.Companion.MIN_MEMORY_BYTES|{}MIN_MEMORY_BYTES[0]
             final fun <get-MIN_MEMORY_BYTES>(): kotlin/Int // wang.harlon.mquickjs/JsEngineConfig.Companion.MIN_MEMORY_BYTES.<get-MIN_MEMORY_BYTES>|<get-MIN_MEMORY_BYTES>(){}[0]
     }
+}
+
+final class wang.harlon.mquickjs/JsEngineStats { // wang.harlon.mquickjs/JsEngineStats|null[0]
+    constructor <init>(kotlin/Int, kotlin/Int) // wang.harlon.mquickjs/JsEngineStats.<init>|<init>(kotlin.Int;kotlin.Int){}[0]
+
+    final val liveRefs // wang.harlon.mquickjs/JsEngineStats.liveRefs|{}liveRefs[0]
+        final fun <get-liveRefs>(): kotlin/Int // wang.harlon.mquickjs/JsEngineStats.liveRefs.<get-liveRefs>|<get-liveRefs>(){}[0]
+    final val refSlots // wang.harlon.mquickjs/JsEngineStats.refSlots|{}refSlots[0]
+        final fun <get-refSlots>(): kotlin/Int // wang.harlon.mquickjs/JsEngineStats.refSlots.<get-refSlots>|<get-refSlots>(){}[0]
+
+    final fun toString(): kotlin/String // wang.harlon.mquickjs/JsEngineStats.toString|toString(){}[0]
 }
 
 final class wang.harlon.mquickjs/JsException : kotlin/RuntimeException { // wang.harlon.mquickjs/JsException|null[0]

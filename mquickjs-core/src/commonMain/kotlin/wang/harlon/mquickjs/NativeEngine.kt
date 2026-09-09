@@ -43,6 +43,10 @@ internal expect class NativeEngine(memoryBytes: Int, host: HostCallbacks) {
     fun refSet(ref: Long, name: String, value: RawValue): RawValue
     fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue
     fun refToJson(ref: Long): RawValue
+
+    /** [liveRefs, refSlots] as in kmpjs_stats. */
+    fun stats(): IntArray
+    fun dumpMemory(): RawValue
 }
 
 internal fun Throwable.hostErrorMessage(): String = message ?: this::class.simpleName ?: "host error"

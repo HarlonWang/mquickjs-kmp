@@ -18,8 +18,8 @@
 
 ## M3 质量与文档
 
-- `macosArm64` 上的 DEBUG_GC + ASan 测试库
-- 句柄泄漏测试：循环创建销毁，断言句柄表回到空闲状态
+- DEBUG_GC + ASan 的 shim C 测试（`nativeShimTest`，已完成）
+- 句柄泄漏测试：`JsEngine.stats()` 暴露存活句柄数，循环创建销毁、transient 参数、回传脚本、泄漏到 OOM 后恢复（已完成）
 - 子集限制文档补充 Kotlin 侧示范
 - benchmark 模块对照 QuickJS 绑定，实例化耗时与常驻内存写进 README
 - 字节码预编译：`mqjs -o` 进构建链，按 64/32 位分别产出，`JS_LoadBytecode` 入口

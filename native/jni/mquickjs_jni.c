@@ -362,3 +362,26 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeRefToJson(JNIEnv *env, jclass cls, 
     kmpjs_ref_to_json((kmpjs_engine *)(intptr_t)ptr, ref, &out);
     return new_value(env, &out);
 }
+
+JNIEXPORT jintArray JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeStats(JNIEnv *env, jclass cls, jlong ptr)
+{
+    kmpjs_stats st;
+    jint values[2];
+    jintArray arr = (*env)->NewIntArray(env, 2);
+    if (!arr)
+        return NULL;
+    kmpjs_get_stats((kmpjs_engine *)(intptr_t)ptr, &st);
+    values[0] = st.live_refs;
+    values[1] = st.ref_slots;
+    (*env)->SetIntArrayRegion(env, arr, 0, 2, values);
+    return arr;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeDumpMemory(JNIEnv *env, jclass cls, jlong ptr)
+{
+    kmpjs_value out;
+    kmpjs_dump_memory((kmpjs_engine *)(intptr_t)ptr, &out);
+    return new_value(env, &out);
+}
