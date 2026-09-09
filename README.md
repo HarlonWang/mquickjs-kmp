@@ -2,26 +2,17 @@
 
 > Kotlin Multiplatform bindings for [MicroQuickJS](https://github.com/bellard/mquickjs), the JavaScript engine for embedded systems by Fabrice Bellard. Runs a JS program in as little as 10 kB of RAM, instantiates in microseconds, and never calls `malloc`.
 
+[![Maven Central](https://img.shields.io/maven-central/v/wang.harlon/mquickjs-kmp?color=blue&label=Maven%20Central)](https://central.sonatype.com/artifact/wang.harlon/mquickjs-kmp)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-brightgreen)](https://kotlinlang.org/docs/multiplatform.html)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 English | [中文](./README_ZH.md)
 
-> 0.1.0 is the first release: evaluation, host functions, live object handles, bytecode, and a coroutine runtime on Android and iOS. The API may still change before 1.0. See [docs/roadmap.md](docs/roadmap.md).
+> Published on Maven Central. The API is still settling; see [docs/roadmap.md](docs/roadmap.md) for what is done and what is next.
 
 ## Why
 
 MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a compacting GC, a ROM-resident standard library and a fixed memory buffer handed in by the host. That makes it a good fit for rule engines, dynamic configuration expressions and other small, high-frequency scripting on mobile, where QuickJS is heavier than needed. This SDK exposes it to Kotlin Multiplatform with a single Maven coordinate and no native build steps on the consumer side.
-
-## Modules
-
-| Module | Artifact | Status |
-| --- | --- | --- |
-| `library` | `wang.harlon:mquickjs-kmp` | 0.1.0 |
-
-Planned: `mquickjs-kmp-serialization` (typed bridging via kotlinx.serialization) and a Gradle plugin for build-time script checks.
-
-`wang.harlon:mquickjs-core:0.1.0` was published briefly under the old artifact name; it is abandoned, use `mquickjs-kmp`.
 
 ## Platforms
 
@@ -37,22 +28,11 @@ JVM desktop and Web are out of scope for this phase.
 
 ```kotlin
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-kmp:0.1.0")
+    implementation("wang.harlon:mquickjs-kmp:latest.version")
 }
 ```
 
-Releases go to Maven Central only; there are no snapshots. To work against unreleased changes, use the composite-build setup below.
-
-### Developing against a local checkout
-
-Consumers that follow the `local.properties` composite-build convention (see `gradle/composite-substitutions`) can point at this repository instead of Maven:
-
-```properties
-# local.properties of the consuming app
-mquickjs-kmp.dir=/path/to/mquickjs-kmp
-```
-
-The consumer then builds this SDK from source; CI on the consumer side still resolves the Maven version, so bump that after publishing.
+Releases go to Maven Central only; there are no snapshots.
 
 ## Usage
 

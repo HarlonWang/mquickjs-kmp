@@ -2,26 +2,15 @@
 
 > [MicroQuickJS](https://github.com/bellard/mquickjs) 的 Kotlin Multiplatform 绑定。MicroQuickJS 是 Fabrice Bellard 面向嵌入式系统的 JavaScript 引擎，10 kB RAM 即可运行 JS 程序，实例化只需微秒级，且从不调用 `malloc`。
 
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-brightgreen)](https://kotlinlang.org/docs/multiplatform.html)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+> Published on Maven Central. The API is still settling; see [docs/roadmap.md](docs/roadmap.md) for what is done and what is next.
 
 [English](./README.md) | 中文
 
-> 0.1.0 是首个发布版本：求值、宿主函数、对象句柄、字节码与协程封装已在 Android 与 iOS 可用。1.0 前 API 仍可能调整。见 [docs/roadmap.md](docs/roadmap.md)。
+> 已发布到 Maven Central。API 仍在收敛，已完成与后续计划见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 为什么
 
 MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩式 GC、常驻 ROM 的标准库、由宿主一次性给定的固定内存缓冲区。这让它非常适合移动端的规则引擎、动态配置表达式这类小而高频的脚本场景，QuickJS 在这些场景下偏重。本 SDK 把它以一个 Maven 坐标暴露给 Kotlin Multiplatform，使用方不需要任何原生构建步骤。
-
-## 模块
-
-| 模块 | 坐标 | 状态 |
-| --- | --- | --- |
-| `library` | `wang.harlon:mquickjs-kmp` | 0.1.0 |
-
-规划中：`mquickjs-kmp-serialization`（基于 kotlinx.serialization 的类型化桥接）与构建期脚本检查的 Gradle 插件。
-
-`wang.harlon:mquickjs-core:0.1.0` 是旧产物名下短暂发过的一版，已废弃，请用 `mquickjs-kmp`。
 
 ## 平台
 
@@ -37,22 +26,11 @@ JVM 桌面与 Web 不在本期范围。
 
 ```kotlin
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-kmp:0.1.0")
+    implementation("wang.harlon:mquickjs-kmp:latest.version")
 }
 ```
 
-只发 Maven Central 正式版，没有快照。要用未发布的改动，按下面的 composite build 方式接源码。
-
-### 本地源码联调
-
-遵循 `local.properties` composite build 约定的使用方（映射见 `gradle/composite-substitutions`）可以直接吃本仓源码而不走 Maven：
-
-```properties
-# 使用方 App 的 local.properties
-mquickjs-kmp.dir=/path/to/mquickjs-kmp
-```
-
-此时使用方从源码构建本 SDK；使用方的 CI 仍解析 Maven 版本，发版后记得 bump。
+只发 Maven Central 正式版，没有快照。
 
 ## 用法
 

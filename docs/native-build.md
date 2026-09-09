@@ -65,3 +65,7 @@ tasks.register<Exec>("compileRules") {
 ```
 
 更新 `native/UPSTREAM` 后所有字节码都要重编，加载会以「built for engine …」拒绝旧文件。
+
+## 消费方本地联调
+
+消费方 App 若遵循 `local.properties` 的 composite build 约定（TrendingAI 的 `settings.gradle.kts` 是参考实现），在其 `local.properties` 写 `mquickjs-kmp.dir=<本仓路径>` 即可直接从源码构建本 SDK；坐标到项目路径的映射由本仓 `gradle/composite-substitutions` 声明。消费方的 CI 没有 `local.properties`，仍解析 Maven 版本，发版后记得 bump。旧产物名 `wang.harlon:mquickjs-core` 曾短暂发布过一版，已废弃。
