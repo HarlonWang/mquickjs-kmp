@@ -84,6 +84,10 @@ static int host(void *user, int32_t id, const kmpjs_value *args, int32_t argc, k
         result->tag = KMPJS_TAG_REF;
         result->ref = retained_ref;
         return 0;
+    case 7: /* report(n) -> n */
+        result->tag = KMPJS_TAG_NUMBER;
+        result->num = argc > 0 ? args[0].num : 0;
+        return 0;
     case 6: /* nested evaluation */
         {
             kmpjs_value o = eval("nestedCounter = nestedCounter + 1", 0);
@@ -227,6 +231,61 @@ static void test_refs(void)
     kmpjs_dump_memory(g, &v); CHECK(v.tag == KMPJS_TAG_STRING && v.str_len > 0);
 }
 
+static void test_bytecode(void)
+{
+    static const char program[] = "var base = 20; function twice(n) { return n * 2; } twice(base) + report(1) + 1";
+    kmpjs_value bc, bc32, v, out;
+    kmpjs_engine *fresh;
+    kmpjs_stats st;
+    uint8_t *tampered;
+    int64_t prog;
+
+    CHECK(kmpjs_word_size() == 64);
+    CHECK(kmpjs_compile(S(program), "prog.js", 64, 0, &bc) == 0 && bc.str_len > KMPJS_BYTECODE_HEADER_SIZE);
+    CHECK(kmpjs_compile(S(program), "prog.js", 32, KMPJS_COMPILE_STRIP_COLUMNS, &bc32) == 0 && bc32.str_len > 0);
+    CHECK(kmpjs_compile(S("var x = ;"), "bad.js", 64, 0, &v) != 0 && str_has(&v, "unexpected character") && v.stack && str_has(&(kmpjs_value){.str = v.stack, .str_len = v.stack_len}, "bad.js"));
+    kmpjs_free((void *)v.stack);
+    kmpjs_free((void *)v.str);
+    CHECK(kmpjs_compile(S("1"), "w.js", 16, 0, &v) != 0);
+    kmpjs_free((void *)v.str);
+
+    /* load first, register host functions, then run: the load must precede any RAM atom */
+    fresh = kmpjs_create(256 * 1024, NULL, host, logger);
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)bc.str, bc.str_len, &v) == 0 && v.tag == KMPJS_TAG_REF);
+    prog = v.ref;
+    /* the engine holds one program (upstream atom table limit) */
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)bc.str, bc.str_len, &v) != 0 && str_has(&v, "one program per engine"));
+    CHECK(kmpjs_define_function(fresh, "report", 7, 0, &out) == 0);
+    CHECK(kmpjs_run_program(fresh, prog, 0, &v) == 0 && v.tag == KMPJS_TAG_NUMBER && v.num == 42);
+    kmpjs_eval(fresh, S("twice(5)"), "<t>", 0, &v); CHECK(v.tag == KMPJS_TAG_NUMBER && v.num == 10);
+    CHECK(kmpjs_run_program(fresh, prog, 0, &v) == 0 && v.num == 42);
+    kmpjs_ref_release(fresh, prog);
+    CHECK(kmpjs_run_program(fresh, prog, 0, &v) != 0);
+    kmpjs_get_stats(fresh, &st); CHECK(st.live_refs == 0);
+    kmpjs_destroy(fresh);
+
+    /* too late once script has run */
+    fresh = kmpjs_create(256 * 1024, NULL, host, logger);
+    kmpjs_eval(fresh, S("var early = 1;"), "<t>", 0, &v);
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)bc.str, bc.str_len, &v) != 0 && str_has(&v, "before any script"));
+    kmpjs_destroy(fresh);
+
+    fresh = kmpjs_create(256 * 1024, NULL, host, logger);
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)bc32.str, bc32.str_len, &v) != 0 && str_has(&v, "32-bit engine"));
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)"garbage", 7, &v) != 0 && str_has(&v, "not MQuickJS bytecode"));
+    tampered = malloc((size_t)bc.str_len);
+    memcpy(tampered, bc.str, (size_t)bc.str_len);
+    memcpy(tampered + 12, "0000000000", 10);
+    CHECK(kmpjs_load_bytecode(fresh, tampered, bc.str_len, &v) != 0 && str_has(&v, "built for engine"));
+    free(tampered);
+    /* the failed loads must not have poisoned the engine */
+    CHECK(kmpjs_load_bytecode(fresh, (const uint8_t *)bc.str, bc.str_len, &v) == 0);
+    CHECK(kmpjs_run_program(fresh, v.ref, 0, &out) != 0 && str_has(&out, "report")); /* host fn missing */
+    kmpjs_destroy(fresh);
+    kmpjs_free((void *)bc.str);
+    kmpjs_free((void *)bc32.str);
+}
+
 int main(void)
 {
     kmpjs_value v;
@@ -237,6 +296,7 @@ int main(void)
     test_exceptions();
     test_host_functions();
     test_refs();
+    test_bytecode();
     /* destroy with refs still open must be clean */
     v = eval("({leak: 1})", KMPJS_FLAG_REF_OBJECTS); CHECK(v.tag == KMPJS_TAG_REF);
     kmpjs_destroy(g);

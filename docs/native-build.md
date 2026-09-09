@@ -53,4 +53,15 @@ Android host test 走宿主编译的 JNI 库：`buildNativeHostJni` 以 `-DMQJS_
 
 ## 字节码
 
-`mqjs -o` 产出的字节码依赖目标 CPU 字长与字节序。iOS 真机、Apple Silicon 模拟器、Android arm64 都是 64 位可共用；`armeabi-v7a` 需用 `-m32` 另出一份。第一版直接分发 JS 源码在运行时编译，字节码预编译放到后续里程碑。
+编译器就是 shim 的 `kmpjs_compile`：宿主工具 `kmpjsc`（`native/tools`，`./gradlew :mquickjs-core:buildHostTools` 编出 `build/native/host-tools/bin/kmpjsc`）和 Kotlin 的 `JsBytecode.compile` 都只是它的包装。输出绑定 `native/UPSTREAM` 的 commit（CMake 读进 `KMPJS_UPSTREAM_COMMIT` 编译期常量）与字长：iOS 真机、Apple Silicon 模拟器、Android arm64 / x86_64 都是 64 位可共用，`armeabi-v7a` 用 `kmpjsc -m32` 另出一份，运行时按 `JsBytecode.wordSize` 选文件。不用上游的 `mqjs`：它链接的是上游 stdlib，且不会写我们的文件头。
+
+使用方在构建期编译的最小做法：
+
+```kotlin
+// 使用方工程的 build.gradle.kts；kmpjsc 来自本仓 buildHostTools 的产物
+tasks.register<Exec>("compileRules") {
+    commandLine("/path/to/kmpjsc", "-o", "src/main/assets/rules.64.bin", "src/main/js/rules.js")
+}
+```
+
+更新 `native/UPSTREAM` 后所有字节码都要重编，加载会以「built for engine …」拒绝旧文件。

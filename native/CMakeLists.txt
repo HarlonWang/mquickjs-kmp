@@ -7,6 +7,7 @@ option(MQJS_DEBUG_GC "move objects on every allocation to surface stale JSValue 
 # Host-side JNI library so Android host tests can exercise the real JNI path on the build machine
 option(MQJS_HOST_JNI "build the JNI shared library for the host JVM" OFF)
 option(MQJS_SHIM_TEST "build the host shim test binary (native/test)" OFF)
+option(MQJS_TOOLS "build the host command line tools (native/tools)" OFF)
 option(MQJS_ASAN "compile everything with AddressSanitizer" OFF)
 
 if(NOT MQJS_GEN_DIR)
@@ -14,6 +15,15 @@ if(NOT MQJS_GEN_DIR)
 endif()
 
 set(MQJS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/mquickjs)
+
+# Bytecode files carry the engine commit they were produced with; native/UPSTREAM is the single source.
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/UPSTREAM MQJS_UPSTREAM_LINE REGEX "^commit=")
+string(REGEX REPLACE "^commit=" "" MQJS_UPSTREAM_COMMIT "${MQJS_UPSTREAM_LINE}")
+string(STRIP "${MQJS_UPSTREAM_COMMIT}" MQJS_UPSTREAM_COMMIT)
+string(LENGTH "${MQJS_UPSTREAM_COMMIT}" MQJS_UPSTREAM_COMMIT_LEN)
+if(NOT MQJS_UPSTREAM_COMMIT_LEN EQUAL 40)
+    message(FATAL_ERROR "native/UPSTREAM must contain a full 40-char commit= line, got '${MQJS_UPSTREAM_COMMIT}'")
+endif()
 
 add_library(mquickjs_kmp_static STATIC
     ${MQJS_ROOT}/mquickjs.c
@@ -27,7 +37,7 @@ target_include_directories(mquickjs_kmp_static
     PUBLIC shim
     PRIVATE ${MQJS_GEN_DIR} ${MQJS_ROOT}
 )
-target_compile_definitions(mquickjs_kmp_static PRIVATE _GNU_SOURCE)
+target_compile_definitions(mquickjs_kmp_static PRIVATE _GNU_SOURCE KMPJS_UPSTREAM_COMMIT="${MQJS_UPSTREAM_COMMIT}")
 target_compile_options(mquickjs_kmp_static PRIVATE -Os -Wall -Wno-macro-redefined -fno-math-errno -fno-trapping-math -fvisibility=hidden)
 if(MQJS_DEBUG_GC)
     target_compile_definitions(mquickjs_kmp_static PRIVATE DEBUG_GC)
@@ -59,4 +69,10 @@ if(MQJS_SHIM_TEST)
     add_executable(shim_test test/shim_test.c)
     target_compile_options(shim_test PRIVATE -Wall)
     target_link_libraries(shim_test PRIVATE mquickjs_kmp_static)
+endif()
+
+if(MQJS_TOOLS)
+    add_executable(kmpjsc tools/kmpjsc.c)
+    target_compile_options(kmpjsc PRIVATE -Wall)
+    target_link_libraries(kmpjsc PRIVATE mquickjs_kmp_static)
 endif()

@@ -28,6 +28,7 @@ internal object NativeTag {
     const val FLAG_REF_OBJECTS = 1
     const val REF_FUNCTION = 1
     const val REF_ARRAY = 2
+    const val COMPILE_STRIP_COLUMNS = 1
 }
 
 internal expect class NativeEngine(memoryBytes: Int, host: HostCallbacks) {
@@ -47,6 +48,16 @@ internal expect class NativeEngine(memoryBytes: Int, host: HostCallbacks) {
     /** [liveRefs, refSlots] as in kmpjs_stats. */
     fun stats(): IntArray
     fun dumpMemory(): RawValue
+
+    fun loadBytecode(bytes: ByteArray): RawValue
+    fun runProgram(ref: Long, flags: Int): RawValue
+}
+
+internal expect object NativeCompiler {
+    fun wordSize(): Int
+
+    /** The bytecode on success, or a [RawValue] carrying the error. */
+    fun compile(script: String, fileName: String, wordSize: Int, flags: Int): Any
 }
 
 internal fun Throwable.hostErrorMessage(): String = message ?: this::class.simpleName ?: "host error"

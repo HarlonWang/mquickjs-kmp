@@ -14,7 +14,7 @@
 
 - `JsRef` 句柄表：`ObjectTransport.REF` 下对象以活句柄返回，读写属性、数组下标、带 this 调用函数、`toJson`；宿主函数收到的 ref 调用内有效，`retain` 留住；`AutoCloseable`，无 Cleaner 兜底（引擎 close 时整块内存一起释放）
 - `JsRuntime`：单车道 dispatcher 串行化，`withEngine` 独占访问，协程取消与 `timeout` 映射为 `interrupt()`
-- 字节码预编译推到 M3：要先把 `mqjs` 宿主工具与按字长分发做进构建链
+- 字节码预编译在 M3 完成
 
 ## M3 质量与文档
 
@@ -22,7 +22,7 @@
 - 句柄泄漏测试：`JsEngine.stats()` 暴露存活句柄数，循环创建销毁、transient 参数、回传脚本、泄漏到 OOM 后恢复（已完成）
 - 子集限制文档补充 Kotlin 侧示范
 - benchmark 模块对照 QuickJS 绑定，实例化耗时与常驻内存写进 README
-- 字节码预编译：`mqjs -o` 进构建链，按 64/32 位分别产出，`JS_LoadBytecode` 入口
+- 字节码预编译（已完成）：shim `kmpjs_compile` / `kmpjs_load_bytecode` / `kmpjs_run_program`，Kotlin `JsBytecode.compile` / `JsEngine.loadBytecode` / `JsProgram`，宿主工具 `kmpjsc`，文件头绑定上游 commit 与字长
 - 1.0 发布
 
 ## 之后

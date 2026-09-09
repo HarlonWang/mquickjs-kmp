@@ -59,3 +59,7 @@ Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loa
 ## JsRuntime 的互斥来自 Mutex，dispatcher 只决定在哪跑
 
 引擎没有线程亲和（C 侧无线程局部状态，JNI 每次调用取当前 env，K/N 用 StableRef），需要的只是互斥。互斥由 `JsRuntime` 内部的 `Mutex` 保证，不依赖调用方传入的 dispatcher 是否单车道，`shutdown` 也在同一把锁下关闭引擎。默认 dispatcher 是 `Dispatchers.Default` 的单车道：求值是 CPU 工作；宿主函数会阻塞 I/O 时由调用方传自己的 dispatcher。common 里访问不到 `Dispatchers.IO`（在 common 源集是 internal），也是不选它做默认的原因之一。
+
+## 字节码绑定 SDK 版本，不做内容校验
+
+文件头只记 magic、字长与上游 commit。commit 而不是 SDK 版本号，因为字节码格式取决于引擎源码，同一引擎 commit 下的多个 SDK 版本可以互用。内容校验（验证字节码合法性）不做：引擎本身不做，我们在外面也做不到有意义的验证，只能靠「只加载本 SDK 编出来的」这条使用约定。编译能力放进 shim 而不只做命令行工具，是为了让设备端也能编译后缓存，以及让 C 测试与三端 commonTest 都能在进程内往返验证。

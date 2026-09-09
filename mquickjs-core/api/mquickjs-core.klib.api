@@ -91,6 +91,7 @@ final class wang.harlon.mquickjs/JsEngine : kotlin/AutoCloseable { // wang.harlo
     final fun dumpMemory(): kotlin/String // wang.harlon.mquickjs/JsEngine.dumpMemory|dumpMemory(){}[0]
     final fun evaluate(kotlin/String, kotlin/String = ..., wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsEngine.evaluate|evaluate(kotlin.String;kotlin.String;wang.harlon.mquickjs.ObjectTransport){}[0]
     final fun interrupt() // wang.harlon.mquickjs/JsEngine.interrupt|interrupt(){}[0]
+    final fun loadBytecode(kotlin/ByteArray): wang.harlon.mquickjs/JsProgram // wang.harlon.mquickjs/JsEngine.loadBytecode|loadBytecode(kotlin.ByteArray){}[0]
     final fun registerFunction(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ..., wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsEngine.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.ObjectTransport;wang.harlon.mquickjs.JsHostFunction){}[0]
     final fun stats(): wang.harlon.mquickjs/JsEngineStats // wang.harlon.mquickjs/JsEngine.stats|stats(){}[0]
 }
@@ -129,6 +130,11 @@ final class wang.harlon.mquickjs/JsException : kotlin/RuntimeException { // wang
         final fun <get-jsStack>(): kotlin/String? // wang.harlon.mquickjs/JsException.jsStack.<get-jsStack>|<get-jsStack>(){}[0]
 }
 
+final class wang.harlon.mquickjs/JsProgram : kotlin/AutoCloseable { // wang.harlon.mquickjs/JsProgram|null[0]
+    final fun close() // wang.harlon.mquickjs/JsProgram.close|close(){}[0]
+    final fun run(wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsProgram.run|run(wang.harlon.mquickjs.ObjectTransport){}[0]
+}
+
 final class wang.harlon.mquickjs/JsRef : kotlin/AutoCloseable, wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsRef|null[0]
     final val isArray // wang.harlon.mquickjs/JsRef.isArray|{}isArray[0]
         final fun <get-isArray>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isArray.<get-isArray>|<get-isArray>(){}[0]
@@ -156,6 +162,13 @@ final class wang.harlon.mquickjs/JsRuntime : kotlin/AutoCloseable { // wang.harl
     final suspend fun evaluate(kotlin/String, kotlin/String = ..., wang.harlon.mquickjs/ObjectTransport = ..., kotlin.time/Duration? = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRuntime.evaluate|evaluate(kotlin.String;kotlin.String;wang.harlon.mquickjs.ObjectTransport;kotlin.time.Duration?){}[0]
     final suspend fun registerFunction(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ..., wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsRuntime.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.ObjectTransport;wang.harlon.mquickjs.JsHostFunction){}[0]
     final suspend fun shutdown() // wang.harlon.mquickjs/JsRuntime.shutdown|shutdown(){}[0]
+}
+
+final object wang.harlon.mquickjs/JsBytecode { // wang.harlon.mquickjs/JsBytecode|null[0]
+    final val wordSize // wang.harlon.mquickjs/JsBytecode.wordSize|{}wordSize[0]
+        final fun <get-wordSize>(): kotlin/Int // wang.harlon.mquickjs/JsBytecode.wordSize.<get-wordSize>|<get-wordSize>(){}[0]
+
+    final fun compile(kotlin/String, kotlin/String = ..., kotlin/Int = ..., kotlin/Boolean = ...): kotlin/ByteArray // wang.harlon.mquickjs/JsBytecode.compile|compile(kotlin.String;kotlin.String;kotlin.Int;kotlin.Boolean){}[0]
 }
 
 final object wang.harlon.mquickjs/MQuickJs { // wang.harlon.mquickjs/MQuickJs|null[0]

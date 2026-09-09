@@ -198,7 +198,7 @@ val cmakeExecutable: Provider<String> = providers.environmentVariable("PATH").ma
 }
 
 val nativeSources = fileTree(nativeDir) {
-    include("CMakeLists.txt", "mquickjs/**", "shim/**", "stdlib/**", "jni/**", "patches/**", "test/**")
+    include("CMakeLists.txt", "UPSTREAM", "mquickjs/**", "shim/**", "stdlib/**", "jni/**", "patches/**", "test/**", "tools/**")
 }
 
 val buildHostTool = tasks.register<BuildHostTool>("buildHostTool") {
@@ -322,6 +322,18 @@ val buildNativeShimTest = tasks.register<CMakeBuild>("buildNativeShimTest") {
     cmakeBuildDir.set(nativeBuildDir.map { it.dir("shim-test/cmake") })
     libDir.set(nativeBuildDir.map { it.dir("shim-test/bin") })
     cmakeArgs.set(listOf("-DMQJS_SHIM_TEST=ON", "-DMQJS_DEBUG_GC=ON", "-DMQJS_ASAN=ON", "-DCMAKE_BUILD_TYPE=Debug", "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + nativeBuildDir.get().dir("shim-test/bin").asFile.absolutePath))
+}
+
+// 宿主命令行编译器 kmpjsc：使用方在构建期把脚本编成字节码（docs/native-build.md）
+val buildHostTools = tasks.register<CMakeBuild>("buildHostTools") {
+    group = "build"
+    description = "Builds native/tools (kmpjsc) for the host"
+    sources.from(nativeSources)
+    sourceDir.set(nativeDir)
+    generatedDir.set(generateStdlib64.flatMap { it.outputDir })
+    cmakeBuildDir.set(nativeBuildDir.map { it.dir("host-tools/cmake") })
+    libDir.set(nativeBuildDir.map { it.dir("host-tools/bin") })
+    cmakeArgs.set(listOf("-DMQJS_TOOLS=ON", "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=" + nativeBuildDir.get().dir("host-tools/bin").asFile.absolutePath))
 }
 
 abstract class RunShimTest @Inject constructor(private val execOps: ExecOperations) : DefaultTask() {

@@ -94,6 +94,21 @@ JsEngine().use { engine ->
 
 以 `ObjectTransport.REF` 注册的宿主函数收到的 ref 只在本次调用内有效，`retain()` 可留住。`engine.stats().liveRefs` 给出仍未关闭的 ref 数，SDK 自己的泄漏测试就靠它断言。
 
+### 字节码预编译
+
+`JsBytecode.compile` 把脚本编成引擎字节码，`JsEngine.loadBytecode` 免解析加载，且字节码常驻在引擎固定内存之外。顺序是：先加载（每个引擎只能加载一个程序，多个脚本请合并成一份），再注册宿主函数，再运行。
+
+```kotlin
+val bytes = JsBytecode.compile(source, "rules.js")   // 构建期做，或设备上做一次后缓存
+JsEngine().use { engine ->
+    val program = engine.loadBytecode(bytes)          // 必须在 evaluate / registerFunction 之前
+    engine.registerFunction("report") { it[0] }
+    program.use { it.run() }
+}
+```
+
+字节码绑定产出它的 SDK 所内嵌的引擎 commit（`MQuickJs.upstreamCommit`）与字长（`JsBytecode.wordSize`：除 `armeabi-v7a` 外都是 64），不匹配会以明确的 `JsException` 拒绝。除此之外字节码内容不做校验，只加载本 SDK 编出来的。命令行工具 `kmpjsc`（`./gradlew :mquickjs-core:buildHostTools`）做同样的事。
+
 ### 协程：`JsRuntime`
 
 `JsRuntime` 把对同一引擎的所有访问串行到单车道 dispatcher 上，并把协程取消与超时映射为引擎中断。
