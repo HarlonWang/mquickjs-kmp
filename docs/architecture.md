@@ -27,7 +27,7 @@ commonMain      JsEngine / JsValue / JsRef / JsException（expect 声明 + 纯 K
 
 - 上下文单线程。`JsEngine` 不做同步，调用方在单线程使用或自行串行化；`interrupt()` 是唯一可跨线程调用的成员。协程 Dispatcher 封装归 M2。
 - 内存由调用方在创建引擎时一次性给出，引擎不再向系统申请。OOM 与 JS 异常统一经 `JS_GetException` 取 message（`toString()` 结果）与 `stack`，映射为 `JsException`。
-- 中断走上游的 `JS_SetInterruptHandler`，标志是 C11 `atomic_int`，脚本以 `InternalError: interrupted` 终止，引擎随后可继续使用；中断只作用于正在运行的求值，空闲时调用会被下一次求值清掉。
+- 中断走上游的 `JS_SetInterruptHandler`，引擎状态是 C11 `atomic_int` 的 idle / running / interrupted 三态机：求值开始 CAS 进入 running，`interrupt()` 只在 running 时 CAS 成 interrupted，空闲时调用是 no-op，嵌套求值不改状态。脚本以 `InternalError: interrupted` 终止，引擎随后可继续使用。
 - 宿主回调（宿主函数、logger）里的 Kotlin 异常一律在回调内截住：Kotlin/Native 异常越过 C 边界会终止进程。宿主函数异常转成 JS `Error`，logger 异常吞掉。
 - 引擎的解析器会读到输入末尾之后一个字节，shim 把所有源码与 JSON 拷贝成 NUL 结尾再交给引擎。
 - 字节码不做校验、不保证跨版本兼容，只加载可信来源；字节码缓存 key 必须包含上游 commit 与目标字长。

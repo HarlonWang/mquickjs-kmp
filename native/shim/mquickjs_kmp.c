@@ -13,6 +13,8 @@
 #define KMP_CFUNCTION_HOST (JS_CFUNCTION_USER + 0)
 #define KMP_MIN_MEM 4096
 
+enum { KMP_IDLE = 0, KMP_RUNNING = 1, KMP_INTERRUPTED = 2 };
+
 typedef struct {
     char *data;
     int32_t len;
@@ -25,7 +27,7 @@ struct kmpjs_engine {
     void *user;
     kmpjs_host_fn host;
     kmpjs_log_fn log;
-    atomic_int interrupted;
+    atomic_int state; /* KMP_IDLE / KMP_RUNNING / KMP_INTERRUPTED */
     kmp_buf out_str;
     kmp_buf out_stack;
     kmp_buf log_line;
@@ -154,7 +156,7 @@ static JSValue js_kmp_host(JSContext *ctx, JSValue *this_val, int argc, JSValue 
 static int kmp_interrupt_handler(JSContext *ctx, void *opaque)
 {
     kmpjs_engine *e = opaque;
-    return atomic_load_explicit(&e->interrupted, memory_order_relaxed);
+    return atomic_load_explicit(&e->state, memory_order_relaxed) == KMP_INTERRUPTED;
 }
 
 kmpjs_engine *kmpjs_create(int32_t mem_bytes, void *user, kmpjs_host_fn host, kmpjs_log_fn log)
@@ -205,7 +207,8 @@ void *kmpjs_get_user(kmpjs_engine *e)
 
 void kmpjs_interrupt(kmpjs_engine *e)
 {
-    atomic_store_explicit(&e->interrupted, 1, memory_order_relaxed);
+    int expected = KMP_RUNNING;
+    atomic_compare_exchange_strong(&e->state, &expected, KMP_INTERRUPTED);
 }
 
 static void publish(kmp_buf *b, const char **pstr, int32_t *plen)
@@ -343,12 +346,15 @@ static JSValue parse_terminated(JSContext *ctx, const char *code, int32_t len, c
 void kmpjs_eval(kmpjs_engine *e, const char *code, int32_t code_len, const char *filename, kmpjs_value *out)
 {
     JSValue r;
+    int expected = KMP_IDLE;
+    /* nested evaluations (from a host function) keep the outer state so an interrupt is never lost */
+    int outermost = atomic_compare_exchange_strong(&e->state, &expected, KMP_RUNNING);
 
-    /* an interrupt requested while nothing runs is dropped here: it targets the running script only */
-    atomic_store_explicit(&e->interrupted, 0, memory_order_relaxed);
     r = parse_terminated(e->ctx, code, code_len, filename, JS_EVAL_RETVAL, 1);
     if (JS_IsException(r) || value_to_out(e->ctx, r, &e->out_str, out))
         exception_to_out(e, out);
+    if (outermost)
+        atomic_store(&e->state, KMP_IDLE);
 }
 
 int32_t kmpjs_define_function(kmpjs_engine *e, const char *name, int32_t fn_id, kmpjs_value *out)

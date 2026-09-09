@@ -55,8 +55,8 @@ void kmpjs_eval(kmpjs_engine *e, const char *code, int32_t code_len,
    Returns 0 on success, otherwise *out holds the exception. */
 int32_t kmpjs_define_function(kmpjs_engine *e, const char *name, int32_t fn_id, kmpjs_value *out);
 
-/* Safe to call from any thread while the engine is alive. Only affects the evaluation
-   in progress; kmpjs_eval clears the flag when it starts. */
+/* Safe to call from any thread while the engine is alive. Stops the evaluation in
+   progress; a call while no evaluation runs is a no-op. */
 void kmpjs_interrupt(kmpjs_engine *e);
 
 char *kmpjs_alloc(int32_t len);

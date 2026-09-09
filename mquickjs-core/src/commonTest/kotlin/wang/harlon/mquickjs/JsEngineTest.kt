@@ -120,6 +120,26 @@ class JsEngineTest {
     }
 
     @Test
+    fun interruptWhileIdleIsIgnored() = JsEngine().use { engine ->
+        engine.interrupt()
+        assertEquals(JsValue.Num(2), engine.evaluate("1 + 1"))
+    }
+
+    @Test
+    fun nestedEvaluationFromHostFunction() = JsEngine().use { engine ->
+        engine.registerFunction("inner") { engine.evaluate("21 * 2") }
+        assertEquals(JsValue.Num(43), engine.evaluate("inner() + 1"))
+        // 中断只在循环与调用点被检查；有界循环保证状态机若被嵌套求值重置也不会挂死测试
+        engine.registerFunction("stopInner") {
+            engine.interrupt()
+            engine.evaluate("1")
+        }
+        val e = assertFailsWith<JsException> { engine.evaluate("stopInner(); for (var i = 0; i < 10000000; i++) {}") }
+        assertTrue(e.message.orEmpty().contains("interrupted"), "message was: ${e.message}")
+        assertEquals(JsValue.Num(5), engine.evaluate("5"))
+    }
+
+    @Test
     fun outOfMemoryIsAnException() = JsEngine(JsEngineConfig(memoryBytes = 16 * 1024)).use { engine ->
         val e = assertFailsWith<JsException> {
             engine.evaluate("var a = []; for (var i = 0; i < 100000; i++) a.push({i: i});")
