@@ -33,13 +33,28 @@ JVM desktop and Web are out of scope for this phase.
 
 ## Install
 
-Not published yet. Once on Maven Central:
+Not released yet. Every push to `main` publishes `0.1.0-SNAPSHOT` to the Maven Central snapshot repository:
 
 ```kotlin
+repositories {
+    mavenCentral()
+    maven("https://central.sonatype.com/repository/maven-snapshots/")
+}
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:latest.version")
+    implementation("wang.harlon:mquickjs-core:0.1.0-SNAPSHOT")
 }
 ```
+
+### Developing against a local checkout
+
+Consumers that follow the `local.properties` composite-build convention (see `gradle/composite-substitutions`) can point at this repository instead of Maven:
+
+```properties
+# local.properties of the consuming app
+mquickjs-kmp.dir=/path/to/mquickjs-kmp
+```
+
+The consumer then builds this SDK from source; CI on the consumer side still resolves the Maven version, so bump that after publishing.
 
 ## Usage
 
@@ -69,6 +84,12 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 - [docs/js-subset.md](docs/js-subset.md): what the stricter-mode subset forbids and how to handle it on the Kotlin side
 - [docs/decisions.md](docs/decisions.md): why things are named and scoped the way they are
 - [docs/roadmap.md](docs/roadmap.md): milestones
+
+## Building
+
+- JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
+- `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; Android tests run on a device or emulator via `connectedAndroidDeviceTest`.
+- CI (`.github/workflows/build.yml`) runs the macOS tests, iOS compilation, Android AAR assembly and the API check on every PR, and publishes a snapshot from `main`.
 
 ## Upstream
 

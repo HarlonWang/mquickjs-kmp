@@ -33,13 +33,28 @@ JVM 桌面与 Web 不在本期范围。
 
 ## 安装
 
-尚未发布。发布到 Maven Central 后：
+尚未发正式版。每次推送到 `main` 都会把 `0.1.0-SNAPSHOT` 发布到 Maven Central 快照仓库：
 
 ```kotlin
+repositories {
+    mavenCentral()
+    maven("https://central.sonatype.com/repository/maven-snapshots/")
+}
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:latest.version")
+    implementation("wang.harlon:mquickjs-core:0.1.0-SNAPSHOT")
 }
 ```
+
+### 本地源码联调
+
+遵循 `local.properties` composite build 约定的使用方（映射见 `gradle/composite-substitutions`）可以直接吃本仓源码而不走 Maven：
+
+```properties
+# 使用方 App 的 local.properties
+mquickjs-kmp.dir=/path/to/mquickjs-kmp
+```
+
+此时使用方从源码构建本 SDK；使用方的 CI 仍解析 Maven 版本，发版后记得 bump。
 
 ## 用法
 
@@ -69,6 +84,12 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 - [docs/js-subset.md](docs/js-subset.md)：stricter mode 子集禁止了什么、Kotlin 侧怎么处理
 - [docs/decisions.md](docs/decisions.md)：命名与范围为什么这么定
 - [docs/roadmap.md](docs/roadmap.md)：里程碑
+
+## 构建
+
+- Gradle daemon 要求 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失时 Gradle 自动下载）、Xcode、装有 `gradle/libs.versions.toml` 所锁定 NDK 版本的 Android SDK、PATH 上的 `cmake`。
+- `./gradlew :mquickjs-core:macosArm64Test` 是最快的完整检查；Android 测试通过 `connectedAndroidDeviceTest` 在设备或模拟器上跑。
+- CI（`.github/workflows/build.yml`）对每个 PR 跑 macOS 测试、iOS 编译、Android AAR 组装与 API 校验，并从 `main` 发布快照。
 
 ## 上游
 

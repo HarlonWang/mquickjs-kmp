@@ -20,7 +20,9 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 
 ## 构建与测试
 
-- JDK 17+、Xcode、Android SDK（NDK 版本见 version catalog）、PATH 上有 `cmake`、`local.properties` 里 `sdk.dir`
+- Gradle daemon 用 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失自动下载）、Xcode、Android SDK（NDK 版本见 version catalog）、PATH 上有 `cmake`、`local.properties` 里 `sdk.dir`
+- `gradle/composite-substitutions` 是消费方 composite build 的契约（坐标 → 项目路径），改模块名必须同步
+- CI：`.github/workflows/build.yml`（PR 与 main：macOS 测试、iOS 编译、Android AAR、apiCheck；main 额外发 snapshot），`publish.yml`（tag 触发正式发布）；secrets 命名与 kmp-webview 相同
 - 原生链路：`buildHostTool` → `generateStdlib64/32` → `buildNative*`（CMake）→ Android `collectJniLibs` / Apple cinterop，全部由 Gradle 驱动，详见 docs/native-build.md
 - macOS 单测（最快的反馈）：`./gradlew :mquickjs-core:macosArm64Test`
 - Android 设备测试（需模拟器在线）：`./gradlew :mquickjs-core:connectedAndroidDeviceTest`

@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 原生链路需要 Xcode（iOS）、NDK + CMake（Android），只有 macOS runner 能一次跑全
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 25
+
+      - name: Install NDK
+        run: |
+          NDK_VERSION=$(grep '^android-ndk' gradle/libs.versions.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Android 端 JNI 只能在设备上跑，CI 暂不起模拟器（见 docs/roadmap.md），只验证 AAR 能构建
+      - name: Build and test
+        run: >
+          ./gradlew
+          :mquickjs-core:macosArm64Test
+          :mquickjs-core:compileKotlinIosArm64
+          :mquickjs-core:compileKotlinIosSimulatorArm64
+          :mquickjs-core:assembleAndroidMain
+          :mquickjs-core:apiCheck
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: mquickjs-core/build/test-results/
+          if-no-files-found: ignore
+
+  snapshot:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 25
+
+      - name: Install NDK
+        run: |
+          NDK_VERSION=$(grep '^android-ndk' gradle/libs.versions.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # VERSION_NAME 带 -SNAPSHOT 时 vanniktech 插件推到 Maven Central 的快照仓库；
+      # 仓库没配 secrets 时跳过而不是失败（job 级 if 读不到 secrets，只能放在 step 级）
+      - name: Publish snapshot
+        if: env.ORG_GRADLE_PROJECT_mavenCentralUsername != ''
+        run: ./gradlew publishToMavenCentral --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
