@@ -23,20 +23,20 @@ internal object NativeBridge {
             val list = args.map { it?.toJsValue() ?: JsValue.Undefined }
             engine.host.onHostCall(id, list).toNative()
         } catch (t: Throwable) {
-            NativeValue(NativeTag.EXCEPTION, 0.0, t.hostErrorMessage().encodeToByteArray(), null)
+            NativeValue(NativeTag.EXCEPTION, 0.0, Wtf8.encode(t.hostErrorMessage()), null)
         }
     }
 
     @JvmStatic
     fun onLog(target: Any, message: ByteArray) {
-        (target as NativeEngine).host.onLog(message.decodeToString())
+        (target as NativeEngine).host.onLog(Wtf8.decode(message))
     }
 }
 
 internal fun NativeValue.toJsValue(): JsValue =
-    decodeNativeValue(tag, num, str?.decodeToString(), stack?.decodeToString())
+    decodeNativeValue(tag, num, str?.let(Wtf8::decode), stack?.let(Wtf8::decode))
 
 internal fun JsValue.toNative(): NativeValue {
     val encoded = encodeNativeValue(this)
-    return NativeValue(encoded.tag, encoded.num, encoded.str?.encodeToByteArray(), null)
+    return NativeValue(encoded.tag, encoded.num, encoded.str?.let(Wtf8::encode), null)
 }

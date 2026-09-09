@@ -93,6 +93,22 @@ class JsEngineTest {
     }
 
     @Test
+    fun loggerExceptionsAreSwallowed() {
+        JsEngine(JsEngineConfig(logger = { throw IllegalStateException("logger broke") })).use { engine ->
+            assertEquals(JsValue.Num(1), engine.evaluate("console.log('a'); 1"))
+        }
+    }
+
+    @Test
+    fun preservesUnpairedSurrogates() = JsEngine().use { engine ->
+        engine.registerFunction("echo") { it[0] }
+        assertEquals(JsValue.Str("\uD800"), engine.evaluate("'\\uD800'"))
+        assertEquals(JsValue.Str("a\uDC00b"), engine.evaluate("echo('a\\uDC00b')"))
+        assertEquals(JsValue.Num(3), engine.evaluate("echo('a\\uDC00b').length"))
+        assertEquals(JsValue.Str("\uD83D\uDE00!"), engine.evaluate("echo('\uD83D\uDE00!')"))
+    }
+
+    @Test
     fun interruptStopsInfiniteLoop() = JsEngine().use { engine ->
         engine.registerFunction("stop") {
             engine.interrupt()

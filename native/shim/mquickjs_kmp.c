@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdatomic.h>
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
@@ -24,7 +25,7 @@ struct kmpjs_engine {
     void *user;
     kmpjs_host_fn host;
     kmpjs_log_fn log;
-    volatile int interrupted;
+    atomic_int interrupted;
     kmp_buf out_str;
     kmp_buf out_stack;
     kmp_buf log_line;
@@ -153,7 +154,7 @@ static JSValue js_kmp_host(JSContext *ctx, JSValue *this_val, int argc, JSValue 
 static int kmp_interrupt_handler(JSContext *ctx, void *opaque)
 {
     kmpjs_engine *e = opaque;
-    return e->interrupted;
+    return atomic_load_explicit(&e->interrupted, memory_order_relaxed);
 }
 
 kmpjs_engine *kmpjs_create(int32_t mem_bytes, void *user, kmpjs_host_fn host, kmpjs_log_fn log)
@@ -204,7 +205,7 @@ void *kmpjs_get_user(kmpjs_engine *e)
 
 void kmpjs_interrupt(kmpjs_engine *e)
 {
-    e->interrupted = 1;
+    atomic_store_explicit(&e->interrupted, 1, memory_order_relaxed);
 }
 
 static void publish(kmp_buf *b, const char **pstr, int32_t *plen)
@@ -343,7 +344,8 @@ void kmpjs_eval(kmpjs_engine *e, const char *code, int32_t code_len, const char 
 {
     JSValue r;
 
-    e->interrupted = 0;
+    /* an interrupt requested while nothing runs is dropped here: it targets the running script only */
+    atomic_store_explicit(&e->interrupted, 0, memory_order_relaxed);
     r = parse_terminated(e->ctx, code, code_len, filename, JS_EVAL_RETVAL, 1);
     if (JS_IsException(r) || value_to_out(e->ctx, r, &e->out_str, out))
         exception_to_out(e, out);

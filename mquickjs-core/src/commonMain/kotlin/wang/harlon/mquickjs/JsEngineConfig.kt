@@ -3,7 +3,7 @@ package wang.harlon.mquickjs
 /**
  * @property memoryBytes size of the single buffer the engine allocates from. The engine never
  * grows it; running out raises a [JsException].
- * @property logger receives each `console.log` / `print` line.
+ * @property logger receives each `console.log` / `print` line; exceptions it throws are swallowed.
  */
 public class JsEngineConfig(
     public val memoryBytes: Int = DEFAULT_MEMORY_BYTES,

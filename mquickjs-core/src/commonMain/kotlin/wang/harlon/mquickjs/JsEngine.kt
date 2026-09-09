@@ -10,8 +10,12 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
 
     private val callbacks = object : HostCallbacks {
         override fun onHostCall(id: Int, args: List<JsValue>): JsValue = functions[id].invoke(args)
+        // logger 异常不能穿回原生回调（Kotlin/Native 会直接终止进程），三端统一吞掉
         override fun onLog(message: String) {
-            config.logger?.invoke(message)
+            try {
+                config.logger?.invoke(message)
+            } catch (_: Throwable) {
+            }
         }
     }
 

@@ -46,7 +46,7 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
     actual fun evaluate(script: String, fileName: String): JsValue = memScoped {
         val out = alloc<kmpjs_value>()
         val name = fileName.cstr.ptr
-        val bytes = script.encodeToByteArray()
+        val bytes = Wtf8.encode(script)
         if (bytes.isEmpty()) {
             kmpjs_eval(handle(), null, 0, name, out.ptr)
         } else {
@@ -90,10 +90,14 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
             }
         }
 
+        // 任何异常都不能离开 staticCFunction：Kotlin/Native 异常越过 C 边界会终止进程
         val logCallback = staticCFunction { user: COpaquePointer?, msg: CPointer<kotlinx.cinterop.ByteVar>?, len: Int ->
-            val engine = user!!.asStableRef<NativeEngine>().get()
-            val text = if (msg == null || len <= 0) "" else msg.readBytes(len).decodeToString()
-            engine.host.onLog(text)
+            try {
+                val engine = user!!.asStableRef<NativeEngine>().get()
+                val text = if (msg == null || len <= 0) "" else Wtf8.decode(msg.readBytes(len))
+                engine.host.onLog(text)
+            } catch (_: Throwable) {
+            }
         }
     }
 }
@@ -102,8 +106,8 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
 private fun kmpjs_value.toJsValue(): JsValue = decodeNativeValue(
     tag,
     num,
-    str?.readBytes(str_len)?.decodeToString(),
-    stack?.readBytes(stack_len)?.decodeToString(),
+    str?.readBytes(str_len)?.let(Wtf8::decode),
+    stack?.readBytes(stack_len)?.let(Wtf8::decode),
 )
 
 @OptIn(ExperimentalForeignApi::class)
@@ -120,7 +124,7 @@ private fun JsValue.writeTo(out: kmpjs_value) {
 
 @OptIn(ExperimentalForeignApi::class)
 private fun kmpjs_value.writeStr(text: String) {
-    val bytes = text.encodeToByteArray()
+    val bytes = Wtf8.encode(text)
     val buf = kmpjs_alloc(bytes.size) ?: return
     if (bytes.isNotEmpty()) {
         bytes.usePinned { memcpy(buf, it.addressOf(0), bytes.size.toULong()) }
