@@ -1,17 +1,21 @@
 package wang.harlon.mquickjs
 
+import cnames.structs.kmpjs_engine
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.set
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.usePinned
 import platform.posix.memcpy
@@ -21,9 +25,16 @@ import wang.harlon.mquickjs.cinterop.kmpjs_alloc
 import wang.harlon.mquickjs.cinterop.kmpjs_create
 import wang.harlon.mquickjs.cinterop.kmpjs_define_function
 import wang.harlon.mquickjs.cinterop.kmpjs_destroy
-import cnames.structs.kmpjs_engine
 import wang.harlon.mquickjs.cinterop.kmpjs_eval
+import wang.harlon.mquickjs.cinterop.kmpjs_free
 import wang.harlon.mquickjs.cinterop.kmpjs_interrupt
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_call
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_get
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_get_index
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_release
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_retain
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_set
+import wang.harlon.mquickjs.cinterop.kmpjs_ref_to_json
 import wang.harlon.mquickjs.cinterop.kmpjs_value
 
 @OptIn(ExperimentalForeignApi::class)
@@ -42,27 +53,24 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
 
     private fun handle(): CPointer<kmpjs_engine> = engine ?: throw IllegalStateException("engine closed")
 
-    actual fun evaluate(script: String, fileName: String): JsValue = memScoped {
+    actual fun evaluate(script: String, fileName: String, flags: Int): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
-        val name = Wtf8.encode(fileName) + 0
+        val name = cString(fileName)
         val bytes = Wtf8.encode(script)
-        name.usePinned { pinnedName ->
-            if (bytes.isEmpty()) {
-                kmpjs_eval(handle(), null, 0, pinnedName.addressOf(0), out.ptr)
-            } else {
-                bytes.usePinned { pinned ->
-                    kmpjs_eval(handle(), pinned.addressOf(0), bytes.size, pinnedName.addressOf(0), out.ptr)
-                }
+        if (bytes.isEmpty()) {
+            kmpjs_eval(handle(), null, 0, name, flags, out.ptr)
+        } else {
+            bytes.usePinned { pinned ->
+                kmpjs_eval(handle(), pinned.addressOf(0), bytes.size, name, flags, out.ptr)
             }
         }
-        out.toJsValue()
+        out.toRaw()
     }
 
-    actual fun defineFunction(name: String, id: Int): Unit = memScoped {
+    actual fun defineFunction(name: String, id: Int, flags: Int): RawValue = memScoped {
         val out = alloc<kmpjs_value>()
-        if (kmpjs_define_function(handle(), name, id, out.ptr) != 0) {
-            out.toJsValue()
-        }
+        kmpjs_define_function(handle(), cString(name), id, flags, out.ptr)
+        out.toRaw()
     }
 
     actual fun interrupt() {
@@ -76,22 +84,66 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         ref.dispose()
     }
 
+    actual fun refRetain(ref: Long) {
+        kmpjs_ref_retain(handle(), ref)
+    }
+
+    actual fun refRelease(ref: Long) {
+        engine?.let { kmpjs_ref_release(it, ref) }
+    }
+
+    actual fun refGet(ref: Long, name: String, flags: Int): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        kmpjs_ref_get(handle(), ref, cString(name), flags, out.ptr)
+        out.toRaw()
+    }
+
+    actual fun refGetIndex(ref: Long, index: Int, flags: Int): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        kmpjs_ref_get_index(handle(), ref, index, flags, out.ptr)
+        out.toRaw()
+    }
+
+    actual fun refSet(ref: Long, name: String, value: RawValue): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        val v = alloc<kmpjs_value>()
+        value.writeTo(v)
+        kmpjs_ref_set(handle(), ref, cString(name), v.ptr, out.ptr)
+        v.freePayload()
+        out.toRaw()
+    }
+
+    actual fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        val values = allocArray<kmpjs_value>(args.size)
+        args.forEachIndexed { i, raw -> raw.writeTo(values[i]) }
+        kmpjs_ref_call(handle(), ref, thisRef, if (args.isEmpty()) null else values, args.size, flags, out.ptr)
+        for (i in args.indices) values[i].freePayload()
+        out.toRaw()
+    }
+
+    actual fun refToJson(ref: Long): RawValue = memScoped {
+        val out = alloc<kmpjs_value>()
+        kmpjs_ref_to_json(handle(), ref, out.ptr)
+        out.toRaw()
+    }
+
     private companion object {
+        // 任何异常都不能离开 staticCFunction：Kotlin/Native 异常越过 C 边界会终止进程
         val hostCallback = staticCFunction { user: COpaquePointer?, id: Int, args: CPointer<kmpjs_value>?, argc: Int, result: CPointer<kmpjs_value>? ->
-            val engine = user!!.asStableRef<NativeEngine>().get()
             val out = result!!.pointed
             try {
-                val list = List(argc) { args!![it].toJsValue() }
-                engine.host.onHostCall(id, list).writeTo(out)
-                0
+                val engine = user!!.asStableRef<NativeEngine>().get()
+                val list = List(argc) { args!![it].toRaw() }
+                val raw = engine.host.onHostCall(id, list)
+                raw.writeTo(out)
+                if (raw.tag == NativeTag.EXCEPTION) 1 else 0
             } catch (t: Throwable) {
-                out.tag = NativeTag.EXCEPTION
-                out.writeStr(t.hostErrorMessage())
+                t.toHostError().writeTo(out)
                 1
             }
         }
 
-        // 任何异常都不能离开 staticCFunction：Kotlin/Native 异常越过 C 边界会终止进程
         val logCallback = staticCFunction { user: COpaquePointer?, msg: CPointer<kotlinx.cinterop.ByteVar>?, len: Int ->
             try {
                 val engine = user!!.asStableRef<NativeEngine>().get()
@@ -103,33 +155,50 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
     }
 }
 
+/** WTF-8 + NUL, so file names and property keys with lone surrogates reach the engine intact. */
 @OptIn(ExperimentalForeignApi::class)
-private fun kmpjs_value.toJsValue(): JsValue = decodeNativeValue(
+private fun MemScope.cString(text: String): CPointer<kotlinx.cinterop.ByteVar> {
+    val bytes = Wtf8.encode(text)
+    val arr = allocArray<kotlinx.cinterop.ByteVar>(bytes.size + 1)
+    bytes.forEachIndexed { i, b -> arr[i] = b }
+    arr[bytes.size] = 0
+    return arr
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun kmpjs_value.toRaw(): RawValue = RawValue(
     tag,
+    ref,
     num,
     str?.readBytes(str_len)?.let(Wtf8::decode),
     stack?.readBytes(stack_len)?.let(Wtf8::decode),
 )
 
+/** String payloads come from kmpjs_alloc; the engine frees host results, [freePayload] frees the rest. */
 @OptIn(ExperimentalForeignApi::class)
-private fun JsValue.writeTo(out: kmpjs_value) {
-    val encoded = encodeNativeValue(this)
-    out.tag = encoded.tag
-    out.num = encoded.num
+private fun RawValue.writeTo(out: kmpjs_value) {
+    out.tag = tag
+    out.ref = ref
+    out.num = num
     out.str = null
     out.str_len = 0
     out.stack = null
     out.stack_len = 0
-    encoded.str?.let { out.writeStr(it) }
+    str?.let { text ->
+        val bytes = Wtf8.encode(text)
+        val buf = kmpjs_alloc(bytes.size) ?: return
+        if (bytes.isNotEmpty()) {
+            bytes.usePinned { memcpy(buf, it.addressOf(0), bytes.size.toULong()) }
+        }
+        out.str = buf
+        out.str_len = bytes.size
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun kmpjs_value.writeStr(text: String) {
-    val bytes = Wtf8.encode(text)
-    val buf = kmpjs_alloc(bytes.size) ?: return
-    if (bytes.isNotEmpty()) {
-        bytes.usePinned { memcpy(buf, it.addressOf(0), bytes.size.toULong()) }
-    }
-    str = buf
-    str_len = bytes.size
+private fun kmpjs_value.freePayload() {
+    kmpjs_free(str)
+    kmpjs_free(stack)
+    str = null
+    stack = null
 }

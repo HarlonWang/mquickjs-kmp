@@ -13,7 +13,7 @@ static jmethodID g_on_host_call;
 static jmethodID g_on_log;
 static jclass g_value;
 static jmethodID g_value_ctor;
-static jfieldID g_f_tag, g_f_num, g_f_str, g_f_stack;
+static jfieldID g_f_tag, g_f_ref, g_f_num, g_f_str, g_f_stack;
 
 typedef struct {
     jobject target;
@@ -40,13 +40,14 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
     if (!cls)
         return JNI_ERR;
     g_value = (*env)->NewGlobalRef(env, cls);
-    g_value_ctor = (*env)->GetMethodID(env, g_value, "<init>", "(ID[B[B)V");
+    g_value_ctor = (*env)->GetMethodID(env, g_value, "<init>", "(IJD[B[B)V");
     g_f_tag = (*env)->GetFieldID(env, g_value, "tag", "I");
+    g_f_ref = (*env)->GetFieldID(env, g_value, "ref", "J");
     g_f_num = (*env)->GetFieldID(env, g_value, "num", "D");
     g_f_str = (*env)->GetFieldID(env, g_value, "str", "[B");
     g_f_stack = (*env)->GetFieldID(env, g_value, "stack", "[B");
 
-    if (!g_on_host_call || !g_on_log || !g_value_ctor || !g_f_tag || !g_f_num || !g_f_str || !g_f_stack)
+    if (!g_on_host_call || !g_on_log || !g_value_ctor || !g_f_tag || !g_f_ref || !g_f_num || !g_f_str || !g_f_stack)
         return JNI_ERR;
     return JNI_VERSION_1_6;
 }
@@ -72,7 +73,7 @@ static jbyteArray new_bytes(JNIEnv *env, const char *p, int32_t len)
 
 static jobject new_value(JNIEnv *env, const kmpjs_value *v)
 {
-    return (*env)->NewObject(env, g_value, g_value_ctor, (jint)v->tag, (jdouble)v->num,
+    return (*env)->NewObject(env, g_value, g_value_ctor, (jint)v->tag, (jlong)v->ref, (jdouble)v->num,
                              new_bytes(env, v->str, v->str_len),
                              new_bytes(env, v->stack, v->stack_len));
 }
@@ -107,13 +108,40 @@ static void set_error(kmpjs_value *result, const char *msg)
     result->str_len = result->str ? len : 0;
 }
 
+/* Copies a NativeValue into *v; string payloads are kmpjs_alloc'ed and owned by the caller. */
+static void read_value(JNIEnv *env, jobject obj, kmpjs_value *v)
+{
+    jbyteArray bytes;
+    memset(v, 0, sizeof(*v));
+    if (!obj) {
+        v->tag = KMPJS_TAG_UNDEFINED;
+        return;
+    }
+    v->tag = (*env)->GetIntField(env, obj, g_f_tag);
+    v->ref = (*env)->GetLongField(env, obj, g_f_ref);
+    v->num = (*env)->GetDoubleField(env, obj, g_f_num);
+    bytes = (*env)->GetObjectField(env, obj, g_f_str);
+    v->str = copy_bytes(env, bytes, &v->str_len);
+    if (bytes)
+        (*env)->DeleteLocalRef(env, bytes);
+    bytes = (*env)->GetObjectField(env, obj, g_f_stack);
+    v->stack = copy_bytes(env, bytes, &v->stack_len);
+    if (bytes)
+        (*env)->DeleteLocalRef(env, bytes);
+}
+
+static void free_value(kmpjs_value *v)
+{
+    kmpjs_free((void *)v->str);
+    kmpjs_free((void *)v->stack);
+}
+
 static int jni_host(void *user, int32_t fn_id, const kmpjs_value *args, int32_t argc, kmpjs_value *result)
 {
     JNIEnv *env = current_env();
     jni_user *u = user;
     jobjectArray arr;
     jobject res;
-    jbyteArray bytes;
     int i;
 
     if (!env || (*env)->PushLocalFrame(env, argc + 8) != 0) {
@@ -131,16 +159,7 @@ static int jni_host(void *user, int32_t fn_id, const kmpjs_value *args, int32_t 
         set_error(result, "uncaught exception in host function");
         return 1;
     }
-    if (!res) {
-        result->tag = KMPJS_TAG_UNDEFINED;
-    } else {
-        result->tag = (*env)->GetIntField(env, res, g_f_tag);
-        result->num = (*env)->GetDoubleField(env, res, g_f_num);
-        bytes = (*env)->GetObjectField(env, res, g_f_str);
-        result->str = copy_bytes(env, bytes, &result->str_len);
-        bytes = (*env)->GetObjectField(env, res, g_f_stack);
-        result->stack = copy_bytes(env, bytes, &result->stack_len);
-    }
+    read_value(env, res, result);
     (*env)->PopLocalFrame(env, NULL);
     return result->tag == KMPJS_TAG_EXCEPTION;
 }
@@ -192,7 +211,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeDestroy(JNIEnv *env, jclass cls, jl
 
 JNIEXPORT jobject JNICALL
 Java_wang_harlon_mquickjs_NativeBridge_nativeEval(JNIEnv *env, jclass cls, jlong ptr,
-                                                  jbyteArray code, jbyteArray filename)
+                                                  jbyteArray code, jbyteArray filename, jint flags)
 {
     kmpjs_engine *e = (kmpjs_engine *)(intptr_t)ptr;
     kmpjs_value out;
@@ -212,7 +231,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeEval(JNIEnv *env, jclass cls, jlong
     code_buf[code_len] = '\0';
     name_buf[name_len] = '\0';
 
-    kmpjs_eval(e, code_buf, code_len, name_buf, &out);
+    kmpjs_eval(e, code_buf, code_len, name_buf, flags, &out);
     res = new_value(env, &out);
     free(code_buf);
     free(name_buf);
@@ -221,7 +240,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeEval(JNIEnv *env, jclass cls, jlong
 
 JNIEXPORT jobject JNICALL
 Java_wang_harlon_mquickjs_NativeBridge_nativeDefineFunction(JNIEnv *env, jclass cls, jlong ptr,
-                                                            jbyteArray name, jint fn_id)
+                                                            jbyteArray name, jint fn_id, jint flags)
 {
     kmpjs_engine *e = (kmpjs_engine *)(intptr_t)ptr;
     kmpjs_value out;
@@ -233,7 +252,7 @@ Java_wang_harlon_mquickjs_NativeBridge_nativeDefineFunction(JNIEnv *env, jclass 
         return NULL;
     (*env)->GetByteArrayRegion(env, name, 0, len, (jbyte *)buf);
     buf[len] = '\0';
-    kmpjs_define_function(e, buf, fn_id, &out);
+    kmpjs_define_function(e, buf, fn_id, flags, &out);
     res = new_value(env, &out);
     free(buf);
     return res;
@@ -243,4 +262,103 @@ JNIEXPORT void JNICALL
 Java_wang_harlon_mquickjs_NativeBridge_nativeInterrupt(JNIEnv *env, jclass cls, jlong ptr)
 {
     kmpjs_interrupt((kmpjs_engine *)(intptr_t)ptr);
+}
+
+/* ---- refs ---- */
+
+static char *dup_cstring(JNIEnv *env, jbyteArray arr)
+{
+    jsize len = (*env)->GetArrayLength(env, arr);
+    char *buf = malloc((size_t)len + 1);
+    if (!buf)
+        return NULL;
+    (*env)->GetByteArrayRegion(env, arr, 0, len, (jbyte *)buf);
+    buf[len] = '\0';
+    return buf;
+}
+
+JNIEXPORT void JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefRetain(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
+{
+    kmpjs_ref_retain((kmpjs_engine *)(intptr_t)ptr, ref);
+}
+
+JNIEXPORT void JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefRelease(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
+{
+    kmpjs_ref_release((kmpjs_engine *)(intptr_t)ptr, ref);
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefGet(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
+                                                    jbyteArray name, jint flags)
+{
+    kmpjs_value out;
+    char *buf = dup_cstring(env, name);
+    jobject res;
+    if (!buf)
+        return NULL;
+    kmpjs_ref_get((kmpjs_engine *)(intptr_t)ptr, ref, buf, flags, &out);
+    res = new_value(env, &out);
+    free(buf);
+    return res;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefGetIndex(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
+                                                         jint index, jint flags)
+{
+    kmpjs_value out;
+    kmpjs_ref_get_index((kmpjs_engine *)(intptr_t)ptr, ref, index, flags, &out);
+    return new_value(env, &out);
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefSet(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
+                                                    jbyteArray name, jobject value)
+{
+    kmpjs_value out, v;
+    char *buf = dup_cstring(env, name);
+    jobject res;
+    if (!buf)
+        return NULL;
+    read_value(env, value, &v);
+    kmpjs_ref_set((kmpjs_engine *)(intptr_t)ptr, ref, buf, &v, &out);
+    res = new_value(env, &out);
+    free_value(&v);
+    free(buf);
+    return res;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefCall(JNIEnv *env, jclass cls, jlong ptr, jlong ref,
+                                                     jlong this_ref, jobjectArray args, jint flags)
+{
+    kmpjs_value out;
+    jsize argc = args ? (*env)->GetArrayLength(env, args) : 0;
+    kmpjs_value *values = argc > 0 ? calloc((size_t)argc, sizeof(*values)) : NULL;
+    jobject res;
+    jsize i;
+    if (argc > 0 && !values)
+        return NULL;
+    for (i = 0; i < argc; i++) {
+        jobject item = (*env)->GetObjectArrayElement(env, args, i);
+        read_value(env, item, &values[i]);
+        if (item)
+            (*env)->DeleteLocalRef(env, item);
+    }
+    kmpjs_ref_call((kmpjs_engine *)(intptr_t)ptr, ref, this_ref, values, argc, flags, &out);
+    res = new_value(env, &out);
+    for (i = 0; i < argc; i++)
+        free_value(&values[i]);
+    free(values);
+    return res;
+}
+
+JNIEXPORT jobject JNICALL
+Java_wang_harlon_mquickjs_NativeBridge_nativeRefToJson(JNIEnv *env, jclass cls, jlong ptr, jlong ref)
+{
+    kmpjs_value out;
+    kmpjs_ref_to_json((kmpjs_engine *)(intptr_t)ptr, ref, &out);
+    return new_value(env, &out);
 }

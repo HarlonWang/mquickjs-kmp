@@ -71,11 +71,48 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 }
 ```
 
-- 原始类型以 `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined` 过桥，对象与数组以 `JsValue.Json` 过桥。
+- 原始类型以 `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined` 过桥，对象与数组默认以 `JsValue.Json` 过桥。
 - 脚本抛异常、语法错误或内存耗尽都抛 `JsException`，带引擎的 message 与 `stack`。
 - 宿主函数抛出的 Kotlin 异常在 JS 侧表现为带同样 message 的 `Error`。
 - `engine.interrupt()` 可从任意线程调用，运行中的脚本以 `InternalError: interrupted` 终止。
-- 引擎是单线程的，目前需要调用方自行串行化。
+- 引擎是单线程的，用下面的 `JsRuntime` 或自行串行化。
+
+### 持有 JS 对象：`JsRef`
+
+指定 `ObjectTransport.REF`，对象以活句柄而非 JSON 返回。`JsRef` 可读写属性、按下标访问数组、带 `this` 与参数调用函数，用完必须 close：对象在此之前一直占着引擎的固定内存。
+
+```kotlin
+JsEngine().use { engine ->
+    val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
+    rules.use { r ->
+        r.set("limit", JsValue.Num(10))
+        val check = r.get("check", ObjectTransport.REF) as JsRef
+        check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+    }
+}
+```
+
+以 `ObjectTransport.REF` 注册的宿主函数收到的 ref 只在本次调用内有效，`retain()` 可留住。
+
+### 协程：`JsRuntime`
+
+`JsRuntime` 把对同一引擎的所有访问串行到单车道 dispatcher 上，并把协程取消与超时映射为引擎中断。
+
+```kotlin
+val runtime = JsRuntime()
+try {
+    try {
+        runtime.evaluate("for (;;) {}", timeout = 200.milliseconds)
+    } catch (e: TimeoutCancellationException) {
+        // 脚本已被中断，引擎可继续用
+    }
+    runtime.withEngine { evaluate("1 + 1") } // 独占访问，ref 只能在这里面用
+} finally {
+    runtime.shutdown()
+}
+```
+
+互斥来自内部的 Mutex，任何 dispatcher 都可以；默认是 `Dispatchers.Default` 的单车道。
 
 ## 文档
 

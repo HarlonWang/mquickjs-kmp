@@ -7,17 +7,13 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
         if (ptr == 0L) throw JsException("failed to create engine with $memoryBytes bytes")
     }
 
-    actual fun evaluate(script: String, fileName: String): JsValue {
-        val result = NativeBridge.nativeEval(ptr, Wtf8.encode(script), Wtf8.encode(fileName))
-            ?: throw JsException("native evaluation failed")
-        return result.toJsValue()
-    }
+    private fun result(value: NativeValue?): RawValue = value?.toRaw() ?: throw JsException("native call failed")
 
-    actual fun defineFunction(name: String, id: Int) {
-        val result = NativeBridge.nativeDefineFunction(ptr, name.encodeToByteArray(), id)
-            ?: throw JsException("native define failed")
-        result.toJsValue()
-    }
+    actual fun evaluate(script: String, fileName: String, flags: Int): RawValue =
+        result(NativeBridge.nativeEval(ptr, Wtf8.encode(script), Wtf8.encode(fileName), flags))
+
+    actual fun defineFunction(name: String, id: Int, flags: Int): RawValue =
+        result(NativeBridge.nativeDefineFunction(ptr, name.encodeToByteArray(), id, flags))
 
     actual fun interrupt() {
         val p = ptr
@@ -31,4 +27,22 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
             NativeBridge.nativeDestroy(p)
         }
     }
+
+    actual fun refRetain(ref: Long) = NativeBridge.nativeRefRetain(ptr, ref)
+
+    actual fun refRelease(ref: Long) = NativeBridge.nativeRefRelease(ptr, ref)
+
+    actual fun refGet(ref: Long, name: String, flags: Int): RawValue =
+        result(NativeBridge.nativeRefGet(ptr, ref, Wtf8.encode(name), flags))
+
+    actual fun refGetIndex(ref: Long, index: Int, flags: Int): RawValue =
+        result(NativeBridge.nativeRefGetIndex(ptr, ref, index, flags))
+
+    actual fun refSet(ref: Long, name: String, value: RawValue): RawValue =
+        result(NativeBridge.nativeRefSet(ptr, ref, Wtf8.encode(name), value.toNative()))
+
+    actual fun refCall(ref: Long, thisRef: Long, args: List<RawValue>, flags: Int): RawValue =
+        result(NativeBridge.nativeRefCall(ptr, ref, thisRef, Array(args.size) { args[it].toNative() }, flags))
+
+    actual fun refToJson(ref: Long): RawValue = result(NativeBridge.nativeRefToJson(ptr, ref))
 }
