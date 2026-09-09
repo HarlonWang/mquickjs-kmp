@@ -21,7 +21,7 @@ commonMain      JsEngine / JsValue / JsRef / JsException（expect 声明 + 纯 K
 
 **单一 trampoline 承接宿主函数。** 标准库由 `mquickjs_build.c` 在编译期生成到 ROM，C 函数只能按 stdlib 定义里的下标引用，不存在运行时注册任意 C 函数的入口。SDK 的 stdlib 在 `js_c_function_decl` 里只声明一个 `kmp_host`，`registerFunction` 用 `JS_NewCFunctionParams(ctx, kmp_host, id)` 造出带 id 闭包的函数对象挂到全局对象上，调用时 C 侧按 id 分发到 Kotlin。Kotlin/Native 的 `staticCFunction` 不能捕获状态，引擎实例通过 `JS_SetContextOpaque` 挂在上下文上，回调用 `StableRef` 取回。
 
-**句柄表取代 JSValue。** 需要让 Kotlin 长期持有 JS 对象时（`ObjectTransport.REF`），对象存进引擎的 slot 表，Kotlin 只拿整数 ref。上游提供两种 GC root：`JS_PushGCRef` / `JS_PopGCRef` 栈式，只适合一次调用内的临时引用；`JS_AddGCRef` / `JS_DeleteGCRef` 链表式、可任意顺序释放。slot 用后者，每个 slot 单独 malloc（`JSGCRef` 被引擎串在侵入式链表里，不能随数组 realloc 移动），带引用计数：传给宿主函数的 ref 计数为 1 且在调用返回后释放，`retain` 加一后归调用方。从 Kotlin 调 JS 函数时，参数先逐个转换并压进 GC ref 栈，再压 VM 栈，因为后一个参数的转换可能分配并移动前一个。
+**句柄表取代 JSValue。** 需要让 Kotlin 长期持有 JS 对象时（`ObjectTransport.REF`），对象存进引擎的 slot 表，Kotlin 只拿整数 ref。上游提供两种 GC root：`JS_PushGCRef` / `JS_PopGCRef` 栈式，只适合一次调用内的临时引用；`JS_AddGCRef` / `JS_DeleteGCRef` 链表式、可任意顺序释放。slot 用后者，每个 slot 单独 malloc（`JSGCRef` 被引擎串在侵入式链表里，不能随数组 realloc 移动），带引用计数：传给宿主函数的 ref 计数为 1 且在调用返回后释放，`retain` 加一后归调用方。ref 整数由 20 位 slot 下标与 11 位 generation 拼成，slot 复用时 generation 递增，过期句柄被拒绝而不会碰到别的对象；Kotlin 侧的 `JsRef` 在 close 或回调结束后也标记失效。属性读写与 `toJSON` 都可能执行脚本，所以每个 ref 操作和求值一样进入 running 态，超时能中断 accessor 里的死循环。从 Kotlin 调 JS 函数时，参数先逐个转换并压进 GC ref 栈，再压 VM 栈，因为后一个参数的转换可能分配并移动前一个。
 
 ## 运行时约束
 

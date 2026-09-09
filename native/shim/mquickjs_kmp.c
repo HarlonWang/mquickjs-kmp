@@ -22,12 +22,19 @@ typedef struct {
 } kmp_buf;
 
 /* One slot per live ref. Slots are malloc'ed individually because the engine keeps
-   their JSGCRef linked in an intrusive list and would break if they moved. */
+   their JSGCRef linked in an intrusive list and would break if they moved.
+   A ref handle packs the slot index with a generation so a stale handle whose slot was
+   reused is rejected instead of touching another object. */
 typedef struct {
     JSGCRef gc;
     int32_t refcount;
     int32_t next_free;
+    uint32_t gen;
 } kmp_slot;
+
+#define KMP_REF_INDEX_BITS 20
+#define KMP_REF_INDEX_MASK ((1u << KMP_REF_INDEX_BITS) - 1)
+#define KMP_REF_GEN_MASK ((1u << (31 - KMP_REF_INDEX_BITS)) - 1)
 
 struct kmpjs_engine {
     JSContext *ctx;
@@ -173,13 +180,20 @@ static int kmp_interrupt_handler(JSContext *ctx, void *opaque)
 
 /* ---- ref table ---- */
 
+static int32_t slot_handle(int32_t idx, uint32_t gen)
+{
+    return (int32_t)(((gen & KMP_REF_GEN_MASK) << KMP_REF_INDEX_BITS) | ((uint32_t)(idx + 1) & KMP_REF_INDEX_MASK));
+}
+
 static kmp_slot *slot_get(kmpjs_engine *e, int32_t ref)
 {
     kmp_slot *s;
-    if (ref <= 0 || ref > e->slot_count)
+    int32_t idx = (int32_t)((uint32_t)ref & KMP_REF_INDEX_MASK) - 1;
+    uint32_t gen = ((uint32_t)ref >> KMP_REF_INDEX_BITS) & KMP_REF_GEN_MASK;
+    if (ref <= 0 || idx < 0 || idx >= e->slot_count)
         return NULL;
-    s = e->slots[ref - 1];
-    return s->refcount > 0 ? s : NULL;
+    s = e->slots[idx];
+    return (s->refcount > 0 && (s->gen & KMP_REF_GEN_MASK) == gen) ? s : NULL;
 }
 
 static int32_t slot_new(kmpjs_engine *e, JSValue v)
@@ -193,6 +207,8 @@ static int32_t slot_new(kmpjs_engine *e, JSValue v)
         s = e->slots[idx];
         e->free_head = s->next_free;
     } else {
+        if (e->slot_count >= (int32_t)KMP_REF_INDEX_MASK)
+            return 0;
         if (e->slot_count == e->slot_cap) {
             int32_t cap = e->slot_cap ? e->slot_cap * 2 : 16;
             kmp_slot **slots = realloc(e->slots, (size_t)cap * sizeof(*slots));
@@ -211,17 +227,19 @@ static int32_t slot_new(kmpjs_engine *e, JSValue v)
     s->next_free = -1;
     pv = JS_AddGCRef(e->ctx, &s->gc);
     *pv = v;
-    return idx + 1;
+    return slot_handle(idx, s->gen);
 }
 
 static void slot_free(kmpjs_engine *e, int32_t ref)
 {
-    kmp_slot *s = e->slots[ref - 1];
+    int32_t idx = (int32_t)((uint32_t)ref & KMP_REF_INDEX_MASK) - 1;
+    kmp_slot *s = e->slots[idx];
     JS_DeleteGCRef(e->ctx, &s->gc);
     s->gc.val = JS_UNDEFINED;
     s->refcount = 0;
+    s->gen++;
     s->next_free = e->free_head;
-    e->free_head = ref - 1;
+    e->free_head = idx;
 }
 
 void kmpjs_ref_retain(kmpjs_engine *e, int32_t ref)
@@ -276,10 +294,15 @@ void kmpjs_destroy(kmpjs_engine *e)
     int32_t i;
     if (!e)
         return;
+    /* unlink live slots from the engine's GC ref list before the context tears down */
+    for (i = 0; i < e->slot_count; i++) {
+        if (e->slots[i]->refcount > 0)
+            JS_DeleteGCRef(e->ctx, &e->slots[i]->gc);
+    }
+    JS_FreeContext(e->ctx);
     for (i = 0; i < e->slot_count; i++)
         free(e->slots[i]);
     free(e->slots);
-    JS_FreeContext(e->ctx);
     buf_free(&e->out_str);
     buf_free(&e->out_stack);
     buf_free(&e->log_line);
@@ -612,34 +635,39 @@ done:
 
 /* ---- ref operations ---- */
 
+/* Property access and JSON.stringify can run script (accessors, toJSON), so every ref
+   operation enters the running state like kmpjs_eval does to stay interruptible. */
+static int32_t finish(kmpjs_engine *e, int outermost, JSValue v, int32_t flags, kmpjs_value *out)
+{
+    int32_t rc = 0;
+    if (JS_IsException(v) || value_to_out(e, v, &e->out_str, flags, out)) {
+        exception_to_out(e, out);
+        rc = -1;
+    }
+    run_end(e, outermost);
+    return rc;
+}
+
 int32_t kmpjs_ref_get(kmpjs_engine *e, int32_t ref, const char *name, int32_t flags, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
-    JSValue v;
+    int outermost;
     if (!s)
         return fail_message(e, out, "invalid or released ref");
-    v = JS_GetPropertyStr(e->ctx, s->gc.val, name);
-    if (JS_IsException(v) || value_to_out(e, v, &e->out_str, flags, out)) {
-        exception_to_out(e, out);
-        return -1;
-    }
-    return 0;
+    outermost = run_begin(e);
+    return finish(e, outermost, JS_GetPropertyStr(e->ctx, s->gc.val, name), flags, out);
 }
 
 int32_t kmpjs_ref_get_index(kmpjs_engine *e, int32_t ref, int32_t index, int32_t flags, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
-    JSValue v;
+    int outermost;
     if (!s)
         return fail_message(e, out, "invalid or released ref");
     if (index < 0)
         return fail_message(e, out, "negative index");
-    v = JS_GetPropertyUint32(e->ctx, s->gc.val, (uint32_t)index);
-    if (JS_IsException(v) || value_to_out(e, v, &e->out_str, flags, out)) {
-        exception_to_out(e, out);
-        return -1;
-    }
-    return 0;
+    outermost = run_begin(e);
+    return finish(e, outermost, JS_GetPropertyUint32(e->ctx, s->gc.val, (uint32_t)index), flags, out);
 }
 
 int32_t kmpjs_ref_set(kmpjs_engine *e, int32_t ref, const char *name, const kmpjs_value *value, kmpjs_value *out)
@@ -648,23 +676,28 @@ int32_t kmpjs_ref_set(kmpjs_engine *e, int32_t ref, const char *name, const kmpj
     kmp_slot *s = slot_get(e, ref);
     JSGCRef v_ref;
     JSValue *pv, r;
+    int outermost;
     if (!s)
         return fail_message(e, out, "invalid or released ref");
+    outermost = run_begin(e);
     /* convert first: JSON parsing allocates and may move the target object */
     pv = JS_PushGCRef(ctx, &v_ref);
     *pv = value_from_host(e, value);
     if (JS_IsException(*pv)) {
         JS_PopGCRef(ctx, &v_ref);
         exception_to_out(e, out);
+        run_end(e, outermost);
         return -1;
     }
     r = JS_SetPropertyStr(ctx, s->gc.val, name, *pv);
     JS_PopGCRef(ctx, &v_ref);
     if (JS_IsException(r)) {
         exception_to_out(e, out);
+        run_end(e, outermost);
         return -1;
     }
     memset(out, 0, sizeof(*out));
+    run_end(e, outermost);
     return 0;
 }
 
@@ -731,23 +764,21 @@ int32_t kmpjs_ref_to_json(kmpjs_engine *e, int32_t ref, kmpjs_value *out)
 {
     kmp_slot *s = slot_get(e, ref);
     JSValue json;
+    int outermost, rc = 0;
     if (!s)
         return fail_message(e, out, "invalid or released ref");
     memset(out, 0, sizeof(*out));
     out->tag = KMPJS_TAG_OBJECT;
     if (JS_IsFunction(e->ctx, s->gc.val))
         return 0;
+    outermost = run_begin(e);
     json = json_stringify(e->ctx, &s->gc.val);
-    if (JS_IsException(json)) {
+    if (JS_IsException(json) || (!JS_IsUndefined(json) && copy_js_string(e->ctx, json, &e->out_str))) {
         exception_to_out(e, out);
-        return -1;
-    }
-    if (!JS_IsUndefined(json)) {
-        if (copy_js_string(e->ctx, json, &e->out_str)) {
-            exception_to_out(e, out);
-            return -1;
-        }
+        rc = -1;
+    } else if (!JS_IsUndefined(json)) {
         publish(&e->out_str, &out->str, &out->str_len);
     }
-    return 0;
+    run_end(e, outermost);
+    return rc;
 }

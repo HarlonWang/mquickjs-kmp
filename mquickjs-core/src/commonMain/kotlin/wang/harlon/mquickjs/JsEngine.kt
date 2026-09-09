@@ -17,8 +17,15 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
     private val inFlightInterrupts = AtomicInt(0)
 
     private val callbacks = object : HostCallbacks {
-        override fun onHostCall(id: Int, args: List<RawValue>): RawValue =
-            encode(functions[id].invoke(args.map { decode(it) }))
+        // 传给宿主函数的 ref 只在本次调用内有效：返回后失效，原生侧随即释放；retain() 的副本不受影响
+        override fun onHostCall(id: Int, args: List<RawValue>): RawValue {
+            val decoded = args.map { decode(it) }
+            try {
+                return encode(functions[id].invoke(decoded))
+            } finally {
+                decoded.forEach { (it as? JsRef)?.invalidate() }
+            }
+        }
 
         // logger 异常不能穿回原生回调（Kotlin/Native 会直接终止进程），三端统一吞掉
         override fun onLog(message: String) {
@@ -120,6 +127,7 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         is JsValue.Json -> RawValue(NativeTag.OBJECT, str = value.json)
         is JsRef -> {
             checkOwned(value)
+            check(value.isValid) { "JsRef is closed" }
             RawValue(NativeTag.REF, ref = value.id)
         }
     }

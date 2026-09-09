@@ -121,6 +121,8 @@ final class wang.harlon.mquickjs/JsRef : kotlin/AutoCloseable, wang.harlon.mquic
         final fun <get-isArray>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isArray.<get-isArray>|<get-isArray>(){}[0]
     final val isFunction // wang.harlon.mquickjs/JsRef.isFunction|{}isFunction[0]
         final fun <get-isFunction>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isFunction.<get-isFunction>|<get-isFunction>(){}[0]
+    final val isValid // wang.harlon.mquickjs/JsRef.isValid|{}isValid[0]
+        final fun <get-isValid>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isValid.<get-isValid>|<get-isValid>(){}[0]
 
     final fun call(kotlin/Array<out wang.harlon.mquickjs/JsValue>...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRef.call|call(kotlin.Array<out|wang.harlon.mquickjs.JsValue>...){}[0]
     final fun close() // wang.harlon.mquickjs/JsRef.close|close(){}[0]

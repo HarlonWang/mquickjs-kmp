@@ -85,7 +85,7 @@ Ask for `ObjectTransport.REF` and objects come back as live handles instead of J
 val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
 rules.use { r ->
     r.set("limit", JsValue.Num(10))
-    val check = r.get("check") as JsRef
+    val check = r.get("check", ObjectTransport.REF) as JsRef
     check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
 }
 ```

@@ -18,34 +18,38 @@ public class JsRef internal constructor(
 
     private var closed = false
 
-    public fun get(name: String, objects: ObjectTransport = ObjectTransport.REF): JsValue =
-        engine.refOp { native.refGet(id, name, objects.flags) }
+    /** Whether this handle is still usable; false after [close] or, for host-function arguments, after the call. */
+    public val isValid: Boolean
+        get() = !closed
 
-    public fun get(index: Int, objects: ObjectTransport = ObjectTransport.REF): JsValue =
-        engine.refOp { native.refGetIndex(id, index, objects.flags) }
+    public fun get(name: String, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
+        op { native.refGet(id, name, objects.flags) }
+
+    public fun get(index: Int, objects: ObjectTransport = ObjectTransport.JSON): JsValue =
+        op { native.refGetIndex(id, index, objects.flags) }
 
     public fun set(name: String, value: JsValue) {
-        engine.refOp { native.refSet(id, name, encode(value)) }
+        op { native.refSet(id, name, encode(value)) }
     }
 
-    /** Calls this function with `this` undefined. */
+    /** Calls this function with `this` undefined; objects come back as JSON. */
     public fun call(vararg args: JsValue): JsValue = invoke(null, args.toList())
 
     public fun invoke(
         thisArg: JsRef?,
         args: List<JsValue>,
-        objects: ObjectTransport = ObjectTransport.REF,
-    ): JsValue = engine.refOp {
+        objects: ObjectTransport = ObjectTransport.JSON,
+    ): JsValue = op {
         thisArg?.let { checkOwned(it) }
         native.refCall(id, thisArg?.id ?: 0, args.map { encode(it) }, objects.flags)
     }
 
     /** `JSON.stringify` of the object, or null when it cannot be serialized. */
-    public fun toJson(): String? = (engine.refOp { native.refToJson(id) } as JsValue.Json).json
+    public fun toJson(): String? = (op { native.refToJson(id) } as JsValue.Json).json
 
-    /** Keeps a transient host-function argument alive beyond the call; the caller now owns a close. */
+    /** Keeps a transient host-function argument alive beyond the call; the returned ref must be closed. */
     public fun retain(): JsRef {
-        engine.refOp { native.refRetain(id); null }
+        op { native.refRetain(id); null }
         return JsRef(engine, id, (if (isFunction) NativeTag.REF_FUNCTION else 0) or (if (isArray) NativeTag.REF_ARRAY else 0))
     }
 
@@ -53,6 +57,16 @@ public class JsRef internal constructor(
         if (closed) return
         closed = true
         engine.releaseRef(id)
+    }
+
+    /** Marks a transient ref unusable without releasing it: the engine releases it itself after the call. */
+    internal fun invalidate() {
+        closed = true
+    }
+
+    private fun op(block: JsEngine.() -> RawValue?): JsValue {
+        check(!closed) { "JsRef is closed" }
+        return engine.refOp(block)
     }
 
     override fun toString(): String = "JsRef(id=$id, function=$isFunction, array=$isArray)"

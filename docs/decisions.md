@@ -54,7 +54,7 @@ Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loa
 
 ## 对象过桥方式由调用点选择，而非全局配置
 
-`evaluate` / `registerFunction` / `JsRef.get` / `invoke` 都带 `objects: ObjectTransport` 参数，默认 JSON。JSON 零泄漏风险、适合"算完给结果"；REF 适合持有回调函数或大对象。放在调用点而不是引擎级配置，是因为同一个引擎里两种用法常常并存。
+`evaluate` / `registerFunction` / `JsRef.get` / `invoke` 都带 `objects: ObjectTransport` 参数，一律默认 JSON，包括已经身处 ref 世界的 `JsRef.get`：默认值不应产生需要关闭的句柄。JSON 零泄漏风险、适合"算完给结果"；REF 适合持有回调函数或大对象。放在调用点而不是引擎级配置，是因为同一个引擎里两种用法常常并存。
 
 ## JsRuntime 用 `Dispatchers.Default.limitedParallelism(1)`
 
