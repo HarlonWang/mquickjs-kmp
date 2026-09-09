@@ -37,7 +37,7 @@ JVM 桌面与 Web 不在本期范围。
 
 ```kotlin
 commonMain.dependencies {
-    implementation("wang.harlon:library:0.1.0")
+    implementation("wang.harlon:mquickjs-kmp:0.1.0")
 }
 ```
 
