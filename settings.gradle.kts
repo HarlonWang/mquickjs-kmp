@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "mquickjs-kmp"
 
-include(":mquickjs-core")
+include(":core")

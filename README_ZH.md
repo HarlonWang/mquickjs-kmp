@@ -17,7 +17,7 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 
 | 模块 | 坐标 | 状态 |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | 0.1.0 |
+| `core` | `wang.harlon:mquickjs-core` | 0.1.0 |
 
 规划中：`mquickjs-serialization`（基于 kotlinx.serialization 的类型化桥接）与构建期脚本检查的 Gradle 插件。
 
@@ -35,7 +35,7 @@ JVM 桌面与 Web 不在本期范围。
 
 ```kotlin
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:0.1.0")
+    implementation("wang.harlon:core:0.1.0")
 }
 ```
 
@@ -103,7 +103,7 @@ JsEngine().use { engine ->
 }
 ```
 
-字节码绑定产出它的 SDK 所内嵌的引擎 commit（`MQuickJs.upstreamCommit`）与字长（`JsBytecode.wordSize`：除 `armeabi-v7a` 外都是 64），不匹配会以明确的 `JsException` 拒绝。除此之外字节码内容不做校验，只加载本 SDK 编出来的。命令行工具 `kmpjsc`（`./gradlew :mquickjs-core:buildHostTools`）做同样的事。
+字节码绑定产出它的 SDK 所内嵌的引擎 commit（`MQuickJs.upstreamCommit`）与字长（`JsBytecode.wordSize`：除 `armeabi-v7a` 外都是 64），不匹配会以明确的 `JsException` 拒绝。除此之外字节码内容不做校验，只加载本 SDK 编出来的。命令行工具 `kmpjsc`（`./gradlew :core:buildHostTools`）做同样的事。
 
 ### 协程：`JsRuntime`
 
@@ -136,8 +136,8 @@ try {
 ## 构建
 
 - Gradle daemon 要求 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失时 Gradle 自动下载）、Xcode、装有 `gradle/libs.versions.toml` 所锁定 NDK 版本的 Android SDK、PATH 上的 `cmake`。
-- `./gradlew :mquickjs-core:macosArm64Test` 是最快的完整检查；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
-- `./gradlew :mquickjs-core:nativeShimTest` 在 `DEBUG_GC`（每次分配都移动对象）加 AddressSanitizer 下跑 C 层 shim 测试。
+- `./gradlew :core:macosArm64Test` 是最快的完整检查；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
+- `./gradlew :core:nativeShimTest` 在 `DEBUG_GC`（每次分配都移动对象）加 AddressSanitizer 下跑 C 层 shim 测试。
 - CI（`.github/workflows/build.yml`）对每个 PR 与 main 推送跑 shim 测试、macOS 测试、Android host 测试、iOS 编译、Android AAR 组装与 API 校验；推版本 tag 时 `publish.yml` 发布到 Maven Central。
 
 ## 上游

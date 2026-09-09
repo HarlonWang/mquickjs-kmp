@@ -4,7 +4,7 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 
 ## 结构
 
-- `mquickjs-core/`：唯一的库模块，artifactId 同名，包名 `wang.harlon.mquickjs`
+- `core/`：唯一的库模块，artifactId `mquickjs-core`（模块名 = artifactId 去掉 `mquickjs-` 前缀，后续模块同规则），包名 `wang.harlon.mquickjs`
 - `native/mquickjs/`：上游 git subtree，**禁止直接修改**，改动进 `native/patches/`
 - `native/stdlib/kmp_stdlib.c`：从上游 `mqjs_stdlib.c` 复制修改而来，subtree pull 后要 diff 同步
 - `native/shim/`：唯一的 C API 层，JNI 与 cinterop 都只对接它
@@ -24,9 +24,9 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 - `gradle/composite-substitutions` 是消费方 composite build 的契约（坐标 → 项目路径），改模块名必须同步
 - CI：`.github/workflows/build.yml`（PR 与 main：shim C 测试、macOS 测试、Android host 测试、iOS 编译、Android AAR、apiCheck），`publish.yml`（推 `x.y.z` tag 触发正式发布，版本号从 tag 注入）；不发快照，本地联调靠 `gradle/composite-substitutions`；secrets 命名与 kmp-webview 相同
 - 原生链路：`buildHostTool` → `generateStdlib64/32` → `buildNative*`（CMake）→ Android `collectJniLibs` / Apple cinterop，全部由 Gradle 驱动，详见 docs/native-build.md
-- macOS 单测（最快的反馈）：`./gradlew :mquickjs-core:macosArm64Test`
-- Android host test（真实 JNI 路径，不需要模拟器）：`./gradlew :mquickjs-core:testAndroidHostTest`
-- shim 的 C 测试（DEBUG_GC + ASan）：`./gradlew :mquickjs-core:nativeShimTest`，改 shim 必跑
-- Android 设备测试（需模拟器在线）：`./gradlew :mquickjs-core:connectedAndroidDeviceTest`
-- iOS 只编译：`./gradlew :mquickjs-core:compileKotlinIosArm64 :mquickjs-core:compileKotlinIosSimulatorArm64`
+- macOS 单测（最快的反馈）：`./gradlew :core:macosArm64Test`
+- Android host test（真实 JNI 路径，不需要模拟器）：`./gradlew :core:testAndroidHostTest`
+- shim 的 C 测试（DEBUG_GC + ASan）：`./gradlew :core:nativeShimTest`，改 shim 必跑
+- Android 设备测试（需模拟器在线）：`./gradlew :core:connectedAndroidDeviceTest`
+- iOS 只编译：`./gradlew :core:compileKotlinIosArm64 :core:compileKotlinIosSimulatorArm64`
 - 改 shim 时新增的行为要在 `native/test/shim_test.c` 里加 CHECK
