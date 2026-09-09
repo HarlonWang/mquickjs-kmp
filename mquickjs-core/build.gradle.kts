@@ -159,11 +159,9 @@ abstract class CMakeBuild @Inject constructor(private val execOps: ExecOperation
 }
 
 abstract class CollectJniLibs @Inject constructor(private val fs: FileSystemOperations) : DefaultTask() {
+    /** Each entry is `<...>/android/<abi>/lib`; the ABI is read back from the path. */
     @get:InputFiles
-    abstract val abiDirs: ConfigurableFileCollection
-
-    @get:Input
-    abstract val abis: ListProperty<String>
+    abstract val abiLibDirs: ConfigurableFileCollection
 
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
@@ -172,10 +170,10 @@ abstract class CollectJniLibs @Inject constructor(private val fs: FileSystemOper
     fun collect() {
         val out = outputDir.get().asFile
         fs.delete { delete(out) }
-        abis.get().zip(abiDirs.files.toList()).forEach { (abi, dir) ->
+        abiLibDirs.files.forEach { dir ->
             fs.copy {
                 from(dir) { include("*.so") }
-                into(out.resolve(abi))
+                into(out.resolve(dir.parentFile.name))
             }
         }
     }
@@ -239,8 +237,7 @@ val androidNativeTasks = androidAbis.map { abi ->
 }
 
 val collectJniLibs = tasks.register<CollectJniLibs>("collectJniLibs") {
-    abis.set(androidAbis)
-    abiDirs.from(androidNativeTasks.map { task -> task.flatMap { it.libDir } })
+    abiLibDirs.from(androidNativeTasks.map { task -> task.flatMap { it.libDir } })
     outputDir.set(nativeBuildDir.map { it.dir("jniLibs") })
 }
 

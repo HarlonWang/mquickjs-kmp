@@ -1,12 +1,20 @@
 package wang.harlon.mquickjs
 
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.decrementAndFetch
+import kotlin.concurrent.atomics.incrementAndFetch
+
 /**
  * One MicroQuickJS context. Not thread-safe: use it from a single thread, or serialize access.
  * [interrupt] is the only member safe to call from another thread.
  */
+@OptIn(ExperimentalAtomicApi::class)
 public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : AutoCloseable {
     private val functions = ArrayList<JsHostFunction>()
-    private var closed = false
+    private val closed = AtomicBoolean(false)
+    private val inFlightInterrupts = AtomicInt(0)
 
     private val callbacks = object : HostCallbacks {
         override fun onHostCall(id: Int, args: List<JsValue>): JsValue = functions[id].invoke(args)
@@ -43,19 +51,29 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         }
     }
 
-    /** Asks running script code to stop; the pending [evaluate] then throws [JsException]. */
+    /**
+     * Asks running script code to stop; the pending [evaluate] then throws [JsException].
+     * Safe to call from any thread, including concurrently with [close].
+     */
     public fun interrupt() {
-        native.interrupt()
+        inFlightInterrupts.incrementAndFetch()
+        try {
+            if (!closed.load()) native.interrupt()
+        } finally {
+            inFlightInterrupts.decrementAndFetch()
+        }
     }
 
     override fun close() {
-        if (closed) return
-        closed = true
+        if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
+        // an interrupt that passed the closed check must finish before the handle is freed
+        while (inFlightInterrupts.load() != 0) {
+        }
         native.close()
     }
 
     private fun checkOpen() {
-        check(!closed) { "JsEngine is closed" }
+        check(!closed.load()) { "JsEngine is closed" }
     }
 
     private fun isIdentifier(name: String): Boolean =

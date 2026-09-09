@@ -159,6 +159,13 @@ class JsEngineTest {
         val engine = JsEngine()
         engine.close()
         engine.close()
+        engine.interrupt()
         assertFailsWith<IllegalStateException> { engine.evaluate("1") }
+    }
+
+    @Test
+    fun fileNameWithLoneSurrogateSurvivesInStack() = JsEngine().use { engine ->
+        val e = assertFailsWith<JsException> { engine.evaluate("null.x", "a\uD800.js") }
+        assertTrue(e.jsStack.orEmpty().contains("a\uD800.js"), "stack was: ${e.jsStack}")
     }
 }

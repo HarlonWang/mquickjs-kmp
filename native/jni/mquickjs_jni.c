@@ -87,7 +87,11 @@ static char *copy_bytes(JNIEnv *env, jbyteArray arr, int32_t *plen)
     }
     len = (*env)->GetArrayLength(env, arr);
     buf = kmpjs_alloc(len);
-    if (buf && len > 0)
+    if (!buf) {
+        *plen = 0;
+        return NULL;
+    }
+    if (len > 0)
         (*env)->GetByteArrayRegion(env, arr, 0, len, (jbyte *)buf);
     *plen = (int32_t)len;
     return buf;

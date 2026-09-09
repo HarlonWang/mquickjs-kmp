@@ -8,7 +8,7 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
     }
 
     actual fun evaluate(script: String, fileName: String): JsValue {
-        val result = NativeBridge.nativeEval(ptr, Wtf8.encode(script), fileName.encodeToByteArray())
+        val result = NativeBridge.nativeEval(ptr, Wtf8.encode(script), Wtf8.encode(fileName))
             ?: throw JsException("native evaluation failed")
         return result.toJsValue()
     }

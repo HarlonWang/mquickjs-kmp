@@ -7,7 +7,6 @@ import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.asStableRef
-import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
@@ -45,13 +44,15 @@ internal actual class NativeEngine actual constructor(memoryBytes: Int, internal
 
     actual fun evaluate(script: String, fileName: String): JsValue = memScoped {
         val out = alloc<kmpjs_value>()
-        val name = fileName.cstr.ptr
+        val name = Wtf8.encode(fileName) + 0
         val bytes = Wtf8.encode(script)
-        if (bytes.isEmpty()) {
-            kmpjs_eval(handle(), null, 0, name, out.ptr)
-        } else {
-            bytes.usePinned { pinned ->
-                kmpjs_eval(handle(), pinned.addressOf(0), bytes.size, name, out.ptr)
+        name.usePinned { pinnedName ->
+            if (bytes.isEmpty()) {
+                kmpjs_eval(handle(), null, 0, pinnedName.addressOf(0), out.ptr)
+            } else {
+                bytes.usePinned { pinned ->
+                    kmpjs_eval(handle(), pinned.addressOf(0), bytes.size, pinnedName.addressOf(0), out.ptr)
+                }
             }
         }
         out.toJsValue()
