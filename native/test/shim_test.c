@@ -1,5 +1,5 @@
 /* Host-side checks of the shim, run with DEBUG_GC + ASan so every allocation moves objects.
-   Exit status is the number of failed checks. */
+   Exit status is 1 when any check failed, else 0. */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -241,5 +241,5 @@ int main(void)
     v = eval("({leak: 1})", KMPJS_FLAG_REF_OBJECTS); CHECK(v.tag == KMPJS_TAG_REF);
     kmpjs_destroy(g);
     printf("shim_test: %d failure(s)\n", failures);
-    return failures;
+    return failures != 0;
 }
