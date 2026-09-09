@@ -32,8 +32,6 @@ commonMain.dependencies {
 }
 ```
 
-Releases go to Maven Central only; there are no snapshots.
-
 ## Usage
 
 ```kotlin

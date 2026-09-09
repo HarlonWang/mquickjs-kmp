@@ -30,8 +30,6 @@ commonMain.dependencies {
 }
 ```
 
-只发 Maven Central 正式版，没有快照。
-
 ## 用法
 
 ```kotlin
