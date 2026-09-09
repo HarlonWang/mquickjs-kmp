@@ -22,6 +22,28 @@ MQuickJS 永远运行在 stricter mode，只支持接近 ES5 的一个子集。�
 - **正则忽略大小写只对 ASCII 生效**，且永远按 Unicode 码点匹配（等价于始终带 `u` 标志），`u` 模式下不支持 `\p{...}` 属性类。从别处搬来的正则要复核。
 - **Date 只有 `Date.now()`**：没有 `new Date()`、`getFullYear`、`Date.parse`、`toLocale*`。时间计算与格式化全部放在 Kotlin 侧（`kotlinx-datetime`），脚本只接收时间戳数字或格式化好的字符串。
 
+## Kotlin 侧处理示范
+
+原则：脚本只做规则判断，多语言文本与时间在 Kotlin 侧准备成脚本能直接比较的值。
+
+```kotlin
+// 大小写归一化在 Kotlin 做，脚本只比较已归一化的字符串
+val country = input.country.lowercase()          // 平台正确处理 É、ß、İ
+engine.registerFunction("country") { JsValue.Str(country) }
+engine.evaluate("country() === 'de' || country() === 'at'")
+
+// 时间：给脚本时间戳或格式化好的字符串，不让脚本碰 Date
+val ageDays = (now - order.createdAt).inWholeDays
+engine.evaluate("var ageDays = $ageDays; ageDays > 30")
+
+// 结构化数据走 JSON，脚本按字段取值；需要多次访问时改用 JsRef 避免重复序列化
+engine.registerFunction("order") { JsValue.Json(orderJson) }
+engine.evaluate("var o = order(); o.items.length > 0 && o.total >= 100")
+
+// 正则：引擎永远按 Unicode 码点匹配，且大小写折叠只对 ASCII 生效，模式里避免依赖这两点
+engine.evaluate("/^[a-z0-9_]{3,16}$/.test(handle)")
+```
+
 ## 判断是否该用 MQuickJS
 
 脚本本身必须处理多语言文本或日期，说明业务不在 MQuickJS 的目标场景，换 QuickJS 更省事。MQuickJS 的价值点是毫秒级实例化与固定可控的内存，适合规则引擎、动态配置表达式这类小而高频的场景。

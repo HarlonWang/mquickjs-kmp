@@ -7,7 +7,7 @@
 
 [English](./README.md) | 中文
 
-> ⚠️ 开发中。原生桥接已在三端跑通（求值、宿主函数、异常、日志、中断），但 API 仍在变动、尚未发布。见 [docs/roadmap.md](docs/roadmap.md)。
+> 0.1.0 是首个发布版本：求值、宿主函数、对象句柄、字节码与协程封装已在 Android 与 iOS 可用。1.0 前 API 仍可能调整。见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 为什么
 
@@ -17,7 +17,7 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 
 | 模块 | 坐标 | 状态 |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | M1：桥接可用，API 未稳定 |
+| `mquickjs-core` | `wang.harlon:mquickjs-core` | 0.1.0 |
 
 规划中：`mquickjs-serialization`（基于 kotlinx.serialization 的类型化桥接）与构建期脚本检查的 Gradle 插件。
 
@@ -33,17 +33,13 @@ JVM 桌面与 Web 不在本期范围。
 
 ## 安装
 
-尚未发正式版。每次推送到 `main` 都会把 `0.1.0-SNAPSHOT` 发布到 Maven Central 快照仓库：
-
 ```kotlin
-repositories {
-    mavenCentral()
-    maven("https://central.sonatype.com/repository/maven-snapshots/")
-}
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:0.1.0-SNAPSHOT")
+    implementation("wang.harlon:mquickjs-core:0.1.0")
 }
 ```
+
+只发 Maven Central 正式版，没有快照。要用未发布的改动，按下面的 composite build 方式接源码。
 
 ### 本地源码联调
 
@@ -142,7 +138,7 @@ try {
 - Gradle daemon 要求 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失时 Gradle 自动下载）、Xcode、装有 `gradle/libs.versions.toml` 所锁定 NDK 版本的 Android SDK、PATH 上的 `cmake`。
 - `./gradlew :mquickjs-core:macosArm64Test` 是最快的完整检查；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
 - `./gradlew :mquickjs-core:nativeShimTest` 在 `DEBUG_GC`（每次分配都移动对象）加 AddressSanitizer 下跑 C 层 shim 测试。
-- CI（`.github/workflows/build.yml`）对每个 PR 跑 shim 测试、macOS 测试、Android host 测试、iOS 编译、Android AAR 组装与 API 校验，并从 `main` 发布快照。
+- CI（`.github/workflows/build.yml`）对每个 PR 与 main 推送跑 shim 测试、macOS 测试、Android host 测试、iOS 编译、Android AAR 组装与 API 校验；推版本 tag 时 `publish.yml` 发布到 Maven Central。
 
 ## 上游
 

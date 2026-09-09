@@ -7,7 +7,7 @@
 
 English | [中文](./README_ZH.md)
 
-> ⚠️ Work in progress. The native bridge runs on all three targets (evaluate, host functions, exceptions, logging, interrupt), but the API is still moving and nothing is published yet. See [docs/roadmap.md](docs/roadmap.md).
+> 0.1.0 is the first release: evaluation, host functions, live object handles, bytecode, and a coroutine runtime on Android and iOS. The API may still change before 1.0. See [docs/roadmap.md](docs/roadmap.md).
 
 ## Why
 
@@ -17,7 +17,7 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 
 | Module | Artifact | Status |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | M1: bridge working, API unstable |
+| `mquickjs-core` | `wang.harlon:mquickjs-core` | 0.1.0 |
 
 Planned: `mquickjs-serialization` (typed bridging via kotlinx.serialization) and a Gradle plugin for build-time script checks.
 
@@ -33,17 +33,13 @@ JVM desktop and Web are out of scope for this phase.
 
 ## Install
 
-Not released yet. Every push to `main` publishes `0.1.0-SNAPSHOT` to the Maven Central snapshot repository:
-
 ```kotlin
-repositories {
-    mavenCentral()
-    maven("https://central.sonatype.com/repository/maven-snapshots/")
-}
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:0.1.0-SNAPSHOT")
+    implementation("wang.harlon:mquickjs-core:0.1.0")
 }
 ```
+
+Releases go to Maven Central only; there are no snapshots. To work against unreleased changes, use the composite-build setup below.
 
 ### Developing against a local checkout
 
@@ -142,7 +138,7 @@ Exclusion comes from an internal mutex, so any dispatcher works; the default is 
 - JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
 - `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
 - `./gradlew :mquickjs-core:nativeShimTest` runs the C-level shim tests under `DEBUG_GC` (every allocation moves objects) and AddressSanitizer.
-- CI (`.github/workflows/build.yml`) runs the shim tests, macOS tests, Android host tests, iOS compilation, Android AAR assembly and the API check on every PR, and publishes a snapshot from `main`.
+- CI (`.github/workflows/build.yml`) runs the shim tests, macOS tests, Android host tests, iOS compilation, Android AAR assembly and the API check on every PR and push to `main`; `publish.yml` releases to Maven Central when a version tag is pushed.
 
 ## Upstream
 

@@ -63,3 +63,7 @@ Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loa
 ## 字节码绑定 SDK 版本，不做内容校验
 
 文件头只记 magic、字长与上游 commit。commit 而不是 SDK 版本号，因为字节码格式取决于引擎源码，同一引擎 commit 下的多个 SDK 版本可以互用。内容校验（验证字节码合法性）不做：引擎本身不做，我们在外面也做不到有意义的验证，只能靠「只加载本 SDK 编出来的」这条使用约定。编译能力放进 shim 而不只做命令行工具，是为了让设备端也能编译后缓存，以及让 C 测试与三端 commonTest 都能在进程内往返验证。
+
+## 只发正式版，不发快照
+
+发布只有 tag 触发的正式版；本地联调走消费方的 composite build（`gradle/composite-substitutions`），源码直接接入，不需要中间版本。快照仓库带来的「X-SNAPSHOT 排在 X 之前」「发完正式版还要 bump 快照号」这些约定纯属额外负担。`gradle.properties` 的 `VERSION_NAME=0.0.0-local` 只是本地占位，正式版本号由 `publish.yml` 从 tag 注入。
