@@ -32,19 +32,20 @@ public class JsRuntime(
     private val engine = JsEngine(config)
     private val mutex = Mutex()
     private val closed = AtomicBoolean(false)
-    // close() 遇到引擎被占用时置位，持锁的 withEngine 结束后补关
     private val pendingClose = AtomicBoolean(false)
 
     /**
      * Runs [block] with exclusive access to the engine. Cancelling the calling coroutine interrupts
      * a script that is still running; the block then completes with [CancellationException].
      */
-    public suspend fun <T> withEngine(block: JsEngine.() -> T): T = mutex.withLock {
-        check(!closed.load()) { "JsRuntime is closed" }
+    public suspend fun <T> withEngine(block: JsEngine.() -> T): T {
         try {
-            runExclusive(block)
+            return mutex.withLock {
+                check(!closed.load()) { "JsRuntime is closed" }
+                runExclusive(block)
+            }
         } finally {
-            if (pendingClose.load()) engine.close()
+            closeIfPending()
         }
     }
 
@@ -107,14 +108,17 @@ public class JsRuntime(
     override fun close() {
         if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         engine.interrupt()
-        if (mutex.tryLock()) {
-            try {
-                engine.close()
-            } finally {
-                mutex.unlock()
-            }
-        } else {
-            pendingClose.store(true)
+        pendingClose.store(true)
+        closeIfPending()
+    }
+
+    // close() 与持锁工作的收尾都走这里：双方先置标志再 tryLock，谁后拿到锁谁关，没有漏关的窗口
+    private fun closeIfPending() {
+        if (!pendingClose.load() || !mutex.tryLock()) return
+        try {
+            engine.close()
+        } finally {
+            mutex.unlock()
         }
     }
 }

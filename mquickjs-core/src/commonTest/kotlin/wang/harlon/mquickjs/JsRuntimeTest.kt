@@ -90,14 +90,17 @@ class JsRuntimeTest {
 
     @Test
     fun closeWhileBusyCompletesWhenWorkEnds() = realTime {
-        val runtime = JsRuntime()
-        coroutineScope {
-            val job = launch { runCatching { runtime.evaluate("for (;;) {}") } }
-            delay(200)
-            runtime.close()
-            job.join()
+        // 多轮压竞态窗口：close() 与持锁工作收尾谁后到都必须把引擎关掉
+        repeat(20) {
+            val runtime = JsRuntime()
+            coroutineScope {
+                val job = launch { runCatching { runtime.evaluate("var i = 0; while (i < 3000000) { i++; }") } }
+                delay(it.toLong() * 3)
+                runtime.close()
+                job.join()
+            }
+            assertFailsWith<IllegalStateException> { runtime.evaluate("1") }
         }
-        assertFailsWith<IllegalStateException> { runtime.evaluate("1") }
     }
 
     @Test
