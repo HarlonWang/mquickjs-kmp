@@ -5,7 +5,7 @@
 // - Show manifest properties: true
 // - Show declarations: true
 
-// Library unique name: <mquickjs-kmp:mquickjs-core>
+// Library unique name: <mquickjs-kmp:library>
 final enum class wang.harlon.mquickjs/ObjectTransport : kotlin/Enum<wang.harlon.mquickjs/ObjectTransport> { // wang.harlon.mquickjs/ObjectTransport|null[0]
     enum entry JSON // wang.harlon.mquickjs/ObjectTransport.JSON|null[0]
     enum entry REF // wang.harlon.mquickjs/ObjectTransport.REF|null[0]

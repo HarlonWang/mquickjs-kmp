@@ -17,9 +17,11 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 
 | Module | Artifact | Status |
 | --- | --- | --- |
-| `mquickjs-core` | `wang.harlon:mquickjs-core` | 0.1.0 |
+| `library` | `wang.harlon:mquickjs-kmp` | 0.1.0 |
 
-Planned: `mquickjs-serialization` (typed bridging via kotlinx.serialization) and a Gradle plugin for build-time script checks.
+Planned: `mquickjs-kmp-serialization` (typed bridging via kotlinx.serialization) and a Gradle plugin for build-time script checks.
+
+`wang.harlon:mquickjs-core:0.1.0` was published briefly under the old artifact name; it is abandoned, use `mquickjs-kmp`.
 
 ## Platforms
 
@@ -35,7 +37,7 @@ JVM desktop and Web are out of scope for this phase.
 
 ```kotlin
 commonMain.dependencies {
-    implementation("wang.harlon:mquickjs-core:0.1.0")
+    implementation("wang.harlon:mquickjs-kmp:0.1.0")
 }
 ```
 
@@ -103,7 +105,7 @@ JsEngine().use { engine ->
 }
 ```
 
-Bytecode is bound to the engine commit of the SDK that produced it (`MQuickJs.upstreamCommit`) and to a word size (`JsBytecode.wordSize`: 64 everywhere except `armeabi-v7a`); mismatches are rejected with a clear `JsException`. Nothing else about the bytes is validated, so only load what this SDK compiled. The host tool `kmpjsc` (`./gradlew :mquickjs-core:buildHostTools`) does the same from the command line.
+Bytecode is bound to the engine commit of the SDK that produced it (`MQuickJs.upstreamCommit`) and to a word size (`JsBytecode.wordSize`: 64 everywhere except `armeabi-v7a`); mismatches are rejected with a clear `JsException`. Nothing else about the bytes is validated, so only load what this SDK compiled. The host tool `kmpjsc` (`./gradlew :library:buildHostTools`) does the same from the command line.
 
 ### Coroutines: `JsRuntime`
 
@@ -136,8 +138,8 @@ Exclusion comes from an internal mutex, so any dispatcher works; the default is 
 ## Building
 
 - JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
-- `./gradlew :mquickjs-core:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
-- `./gradlew :mquickjs-core:nativeShimTest` runs the C-level shim tests under `DEBUG_GC` (every allocation moves objects) and AddressSanitizer.
+- `./gradlew :library:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
+- `./gradlew :library:nativeShimTest` runs the C-level shim tests under `DEBUG_GC` (every allocation moves objects) and AddressSanitizer.
 - CI (`.github/workflows/build.yml`) runs the shim tests, macOS tests, Android host tests, iOS compilation, Android AAR assembly and the API check on every PR and push to `main`; `publish.yml` releases to Maven Central when a version tag is pushed.
 
 ## Upstream

@@ -33,19 +33,19 @@ jobs:
       - name: Build and test
         run: >
           ./gradlew
-          :mquickjs-core:nativeShimTest
-          :mquickjs-core:macosArm64Test
-          :mquickjs-core:testAndroidHostTest
-          :mquickjs-core:compileKotlinIosArm64
-          :mquickjs-core:compileKotlinIosSimulatorArm64
-          :mquickjs-core:assembleAndroidMain
-          :mquickjs-core:apiCheck
+          :library:nativeShimTest
+          :library:macosArm64Test
+          :library:testAndroidHostTest
+          :library:compileKotlinIosArm64
+          :library:compileKotlinIosSimulatorArm64
+          :library:assembleAndroidMain
+          :library:apiCheck
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: mquickjs-core/build/test-results/
+          path: library/build/test-results/
           if-no-files-found: ignore
 

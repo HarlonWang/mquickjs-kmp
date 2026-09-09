@@ -461,10 +461,10 @@ mavenPublishing {
         signAllPublications()
     }
 
-    coordinates(artifactId = "mquickjs-core")
+    coordinates(artifactId = "mquickjs-kmp")
 
     pom {
-        name.set("mquickjs-core")
+        name.set("mquickjs-kmp")
         description.set("Kotlin Multiplatform bindings for MicroQuickJS, the embedded-systems JavaScript engine by Fabrice Bellard.")
         url.set("https://github.com/HarlonWang/mquickjs-kmp")
 
