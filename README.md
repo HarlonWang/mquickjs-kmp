@@ -71,11 +71,37 @@ JsEngine(JsEngineConfig(memoryBytes = 128 * 1024, logger = ::println)).use { eng
 }
 ```
 
-- Primitives cross the boundary as `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined`; objects and arrays as `JsValue.Json`.
+- Primitives cross the boundary as `JsValue.Num` / `Str` / `Bool` / `Null` / `Undefined`; objects and arrays as `JsValue.Json` by default.
 - A script that throws, fails to parse, or exhausts its memory raises `JsException` with the engine's message and `stack`.
 - Throwing from a host function surfaces in JS as an `Error` with the Kotlin message.
 - `engine.interrupt()` may be called from any thread and stops the running script with `InternalError: interrupted`.
-- The engine is single-threaded; serialize access yourself for now.
+- The engine is single-threaded; use `JsRuntime` (below) or serialize access yourself.
+
+### Holding JS objects: `JsRef`
+
+Ask for `ObjectTransport.REF` and objects come back as live handles instead of JSON. A `JsRef` reads and writes properties, indexes arrays, calls functions with a `this` and arguments, and must be closed: the object stays in the engine's fixed memory until then.
+
+```kotlin
+val rules = engine.evaluate("({limit: 3, check: function (n) { return n <= this.limit; }})", objects = ObjectTransport.REF) as JsRef
+rules.use { r ->
+    r.set("limit", JsValue.Num(10))
+    val check = r.get("check") as JsRef
+    check.use { it.invoke(thisArg = r, args = listOf(JsValue.Num(7))) } // JsValue.Bool(true)
+}
+```
+
+Host functions registered with `ObjectTransport.REF` receive refs that live only for the duration of the call; `retain()` keeps one.
+
+### Coroutines: `JsRuntime`
+
+`JsRuntime` serializes every access to one engine on a single-lane dispatcher and maps cancellation and timeouts to engine interrupts.
+
+```kotlin
+val runtime = JsRuntime()
+runtime.evaluate("for (;;) {}", timeout = 200.milliseconds) // TimeoutCancellationException, engine stays usable
+runtime.withEngine { evaluate("1 + 1") }                     // exclusive access, refs usable inside
+runtime.shutdown()
+```
 
 ## Documentation
 

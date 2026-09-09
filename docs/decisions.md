@@ -47,3 +47,15 @@ binary-compatibility-validator 0.18.2 识别不到 AGP `com.android.kotlin.multi
 Android 侧的 Kotlin 桥接是纯 JNI、不碰 Android 框架 API，`System.loadLibrary` 在普通 JVM 上只要 `java.library.path` 里有宿主编译的 `libmquickjs_kmp.dylib` / `.so` 就能加载。因此 `buildNativeHostJni` 用同一份 CMake 在宿主上编一份带 JNI 的动态库，`testAndroidHostTest` 挂上它跑 commonTest，CI 不需要模拟器就覆盖了 JNI 胶水与 `NativeBridge` 回调。
 
 没有为此加 `jvm()` target：那意味着要为五个桌面平台维护原生库、资源解压加载器，并且发布面多出一个不能再删的 variant。设备特有的差异（Bionic、ART 的局部引用上限、armeabi-v7a 的 32 位表）仍靠本地 `connectedAndroidDeviceTest` 兜底。
+
+## ref 的所有权：显式 close，不做 Cleaner 兜底
+
+`JsRef` 只有 `AutoCloseable`，没有 `Cleaner` / finalizer。Android minSdk 24 没有 `java.lang.ref.Cleaner`，Kotlin/Native 没有确定性的析构钩子，两端要各写一套还不保证及时；而泄漏的上界是引擎本身，`JsEngine.close()` 释放整块内存时所有 ref 一并消失。宿主函数收到的 ref 默认只在调用内有效，避免"每次回调都要记得 close"这种最容易漏的场景。
+
+## 对象过桥方式由调用点选择，而非全局配置
+
+`evaluate` / `registerFunction` / `JsRef.get` / `invoke` 都带 `objects: ObjectTransport` 参数，默认 JSON。JSON 零泄漏风险、适合"算完给结果"；REF 适合持有回调函数或大对象。放在调用点而不是引擎级配置，是因为同一个引擎里两种用法常常并存。
+
+## JsRuntime 用 `Dispatchers.Default.limitedParallelism(1)`
+
+引擎没有线程亲和（C 侧无线程局部状态，JNI 每次调用取当前 env，K/N 用 StableRef），需要的只是互斥，所以不起专用线程。求值是 CPU 工作，默认走 Default 的单车道；宿主函数会阻塞 I/O 时由调用方传自己的 dispatcher。common 里访问不到 `Dispatchers.IO`（在 common 源集是 internal），也是不选它做默认的原因之一。

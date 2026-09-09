@@ -7,23 +7,29 @@ internal object NativeBridge {
         check(abi == ABI_VERSION) { "libmquickjs_kmp ABI $abi does not match Kotlin side $ABI_VERSION" }
     }
 
-    const val ABI_VERSION = 1
+    const val ABI_VERSION = 2
 
     @JvmStatic external fun nativeAbiVersion(): Int
     @JvmStatic external fun nativeCreate(memBytes: Int, target: Any): Long
     @JvmStatic external fun nativeDestroy(ptr: Long)
-    @JvmStatic external fun nativeEval(ptr: Long, code: ByteArray, fileName: ByteArray): NativeValue?
-    @JvmStatic external fun nativeDefineFunction(ptr: Long, name: ByteArray, id: Int): NativeValue?
+    @JvmStatic external fun nativeEval(ptr: Long, code: ByteArray, fileName: ByteArray, flags: Int): NativeValue?
+    @JvmStatic external fun nativeDefineFunction(ptr: Long, name: ByteArray, id: Int, flags: Int): NativeValue?
     @JvmStatic external fun nativeInterrupt(ptr: Long)
+    @JvmStatic external fun nativeRefRetain(ptr: Long, ref: Int)
+    @JvmStatic external fun nativeRefRelease(ptr: Long, ref: Int)
+    @JvmStatic external fun nativeRefGet(ptr: Long, ref: Int, name: ByteArray, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefGetIndex(ptr: Long, ref: Int, index: Int, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefSet(ptr: Long, ref: Int, name: ByteArray, value: NativeValue): NativeValue?
+    @JvmStatic external fun nativeRefCall(ptr: Long, ref: Int, thisRef: Int, args: Array<NativeValue>, flags: Int): NativeValue?
+    @JvmStatic external fun nativeRefToJson(ptr: Long, ref: Int): NativeValue?
 
     @JvmStatic
     fun onHostCall(target: Any, id: Int, args: Array<NativeValue?>): NativeValue {
         val engine = target as NativeEngine
         return try {
-            val list = args.map { it?.toJsValue() ?: JsValue.Undefined }
-            engine.host.onHostCall(id, list).toNative()
+            engine.host.onHostCall(id, args.map { it?.toRaw() ?: RawValue(NativeTag.UNDEFINED) }).toNative()
         } catch (t: Throwable) {
-            NativeValue(NativeTag.EXCEPTION, 0.0, Wtf8.encode(t.hostErrorMessage()), null)
+            t.toHostError().toNative()
         }
     }
 
@@ -33,10 +39,8 @@ internal object NativeBridge {
     }
 }
 
-internal fun NativeValue.toJsValue(): JsValue =
-    decodeNativeValue(tag, num, str?.let(Wtf8::decode), stack?.let(Wtf8::decode))
+internal fun NativeValue.toRaw(): RawValue =
+    RawValue(tag, ref, num, str?.let(Wtf8::decode), stack?.let(Wtf8::decode))
 
-internal fun JsValue.toNative(): NativeValue {
-    val encoded = encodeNativeValue(this)
-    return NativeValue(encoded.tag, encoded.num, encoded.str?.let(Wtf8::encode), null)
-}
+internal fun RawValue.toNative(): NativeValue =
+    NativeValue(tag, ref, num, str?.let(Wtf8::encode), stack?.let(Wtf8::encode))

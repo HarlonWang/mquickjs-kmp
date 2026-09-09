@@ -7,8 +7,8 @@ import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
 
 /**
- * One MicroQuickJS context. Not thread-safe: use it from a single thread, or serialize access.
- * [interrupt] is the only member safe to call from another thread.
+ * One MicroQuickJS context. Not thread-safe: use it from a single thread, or serialize access
+ * (see [JsRuntime]). [interrupt] is the only member safe to call from another thread.
  */
 @OptIn(ExperimentalAtomicApi::class)
 public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : AutoCloseable {
@@ -17,7 +17,9 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
     private val inFlightInterrupts = AtomicInt(0)
 
     private val callbacks = object : HostCallbacks {
-        override fun onHostCall(id: Int, args: List<JsValue>): JsValue = functions[id].invoke(args)
+        override fun onHostCall(id: Int, args: List<RawValue>): RawValue =
+            encode(functions[id].invoke(args.map { decode(it) }))
+
         // logger 异常不能穿回原生回调（Kotlin/Native 会直接终止进程），三端统一吞掉
         override fun onLog(message: String) {
             try {
@@ -27,24 +29,35 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         }
     }
 
-    private val native = NativeEngine(config.memoryBytes, callbacks)
+    internal val native = NativeEngine(config.memoryBytes, callbacks)
 
     /**
      * Compiles and runs [script], returning the value of its last expression statement.
      * @throws JsException when the script throws, fails to parse, or exhausts memory.
      */
-    public fun evaluate(script: String, fileName: String = "<eval>"): JsValue {
+    public fun evaluate(
+        script: String,
+        fileName: String = "<eval>",
+        objects: ObjectTransport = ObjectTransport.JSON,
+    ): JsValue {
         checkOpen()
-        return native.evaluate(script, fileName)
+        return decode(native.evaluate(script, fileName, objects.flags))
     }
 
-    /** Exposes [function] to scripts as the global [name]. */
-    public fun registerFunction(name: String, function: JsHostFunction) {
+    /**
+     * Exposes [function] to scripts as the global [name]. With [ObjectTransport.REF] the function
+     * receives object arguments as [JsRef]s that live only for the duration of the call.
+     */
+    public fun registerFunction(
+        name: String,
+        objects: ObjectTransport = ObjectTransport.JSON,
+        function: JsHostFunction,
+    ) {
         checkOpen()
         require(isIdentifier(name)) { "'$name' is not a valid JavaScript identifier" }
         functions.add(function)
         try {
-            native.defineFunction(name, functions.size - 1)
+            decode(native.defineFunction(name, functions.size - 1, objects.flags))
         } catch (e: JsException) {
             functions.removeAt(functions.size - 1)
             throw e
@@ -52,7 +65,7 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
     }
 
     /**
-     * Asks running script code to stop; the pending [evaluate] then throws [JsException].
+     * Asks running script code to stop; the pending evaluation or call then throws [JsException].
      * Safe to call from any thread, including concurrently with [close].
      */
     public fun interrupt() {
@@ -64,12 +77,51 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
         }
     }
 
+    /** Releases every [JsRef] as well: the engine's whole memory goes away with it. */
     override fun close() {
         if (!closed.compareAndSet(expectedValue = false, newValue = true)) return
         // an interrupt that passed the closed check must finish before the handle is freed
         while (inFlightInterrupts.load() != 0) {
         }
         native.close()
+    }
+
+    internal fun refOp(block: JsEngine.() -> RawValue?): JsValue {
+        checkOpen()
+        return block()?.let { decode(it) } ?: JsValue.Undefined
+    }
+
+    internal fun releaseRef(id: Int) {
+        if (!closed.load()) native.refRelease(id)
+    }
+
+    internal fun checkOwned(ref: JsRef) {
+        require(ref.engine === this) { "JsRef belongs to another engine" }
+    }
+
+    internal fun decode(raw: RawValue): JsValue = when (raw.tag) {
+        NativeTag.UNDEFINED -> JsValue.Undefined
+        NativeTag.NULL -> JsValue.Null
+        NativeTag.BOOL -> JsValue.Bool(raw.num != 0.0)
+        NativeTag.NUMBER -> JsValue.Num(raw.num)
+        NativeTag.STRING -> JsValue.Str(raw.str ?: "")
+        NativeTag.OBJECT -> JsValue.Json(raw.str)
+        NativeTag.REF -> JsRef(this, raw.ref, raw.num.toInt())
+        NativeTag.EXCEPTION -> throw JsException(raw.str ?: "unknown exception", raw.stack)
+        else -> error("unknown native tag ${raw.tag}")
+    }
+
+    internal fun encode(value: JsValue): RawValue = when (value) {
+        JsValue.Undefined -> RawValue(NativeTag.UNDEFINED)
+        JsValue.Null -> RawValue(NativeTag.NULL)
+        is JsValue.Bool -> RawValue(NativeTag.BOOL, num = if (value.value) 1.0 else 0.0)
+        is JsValue.Num -> RawValue(NativeTag.NUMBER, num = value.value)
+        is JsValue.Str -> RawValue(NativeTag.STRING, str = value.value)
+        is JsValue.Json -> RawValue(NativeTag.OBJECT, str = value.json)
+        is JsRef -> {
+            checkOwned(value)
+            RawValue(NativeTag.REF, ref = value.id)
+        }
     }
 
     private fun checkOpen() {
@@ -81,3 +133,5 @@ public class JsEngine(private val config: JsEngineConfig = JsEngineConfig()) : A
             (name[0].isLetter() || name[0] == '_' || name[0] == '$') &&
             name.all { it.isLetterOrDigit() || it == '_' || it == '$' }
 }
+
+internal fun Throwable.toHostError(): RawValue = RawValue(NativeTag.EXCEPTION, str = hostErrorMessage())

@@ -6,6 +6,17 @@
 // - Show declarations: true
 
 // Library unique name: <mquickjs-kmp:mquickjs-core>
+final enum class wang.harlon.mquickjs/ObjectTransport : kotlin/Enum<wang.harlon.mquickjs/ObjectTransport> { // wang.harlon.mquickjs/ObjectTransport|null[0]
+    enum entry JSON // wang.harlon.mquickjs/ObjectTransport.JSON|null[0]
+    enum entry REF // wang.harlon.mquickjs/ObjectTransport.REF|null[0]
+
+    final val entries // wang.harlon.mquickjs/ObjectTransport.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<wang.harlon.mquickjs/ObjectTransport> // wang.harlon.mquickjs/ObjectTransport.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): wang.harlon.mquickjs/ObjectTransport // wang.harlon.mquickjs/ObjectTransport.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<wang.harlon.mquickjs/ObjectTransport> // wang.harlon.mquickjs/ObjectTransport.values|values#static(){}[0]
+}
+
 abstract fun interface wang.harlon.mquickjs/JsHostFunction { // wang.harlon.mquickjs/JsHostFunction|null[0]
     abstract fun invoke(kotlin.collections/List<wang.harlon.mquickjs/JsValue>): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsHostFunction.invoke|invoke(kotlin.collections.List<wang.harlon.mquickjs.JsValue>){}[0]
 }
@@ -77,9 +88,9 @@ final class wang.harlon.mquickjs/JsEngine : kotlin/AutoCloseable { // wang.harlo
     constructor <init>(wang.harlon.mquickjs/JsEngineConfig = ...) // wang.harlon.mquickjs/JsEngine.<init>|<init>(wang.harlon.mquickjs.JsEngineConfig){}[0]
 
     final fun close() // wang.harlon.mquickjs/JsEngine.close|close(){}[0]
-    final fun evaluate(kotlin/String, kotlin/String = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsEngine.evaluate|evaluate(kotlin.String;kotlin.String){}[0]
+    final fun evaluate(kotlin/String, kotlin/String = ..., wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsEngine.evaluate|evaluate(kotlin.String;kotlin.String;wang.harlon.mquickjs.ObjectTransport){}[0]
     final fun interrupt() // wang.harlon.mquickjs/JsEngine.interrupt|interrupt(){}[0]
-    final fun registerFunction(kotlin/String, wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsEngine.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.JsHostFunction){}[0]
+    final fun registerFunction(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ..., wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsEngine.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.ObjectTransport;wang.harlon.mquickjs.JsHostFunction){}[0]
 }
 
 final class wang.harlon.mquickjs/JsEngineConfig { // wang.harlon.mquickjs/JsEngineConfig|null[0]
@@ -103,6 +114,33 @@ final class wang.harlon.mquickjs/JsException : kotlin/RuntimeException { // wang
 
     final val jsStack // wang.harlon.mquickjs/JsException.jsStack|{}jsStack[0]
         final fun <get-jsStack>(): kotlin/String? // wang.harlon.mquickjs/JsException.jsStack.<get-jsStack>|<get-jsStack>(){}[0]
+}
+
+final class wang.harlon.mquickjs/JsRef : kotlin/AutoCloseable, wang.harlon.mquickjs/JsValue { // wang.harlon.mquickjs/JsRef|null[0]
+    final val isArray // wang.harlon.mquickjs/JsRef.isArray|{}isArray[0]
+        final fun <get-isArray>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isArray.<get-isArray>|<get-isArray>(){}[0]
+    final val isFunction // wang.harlon.mquickjs/JsRef.isFunction|{}isFunction[0]
+        final fun <get-isFunction>(): kotlin/Boolean // wang.harlon.mquickjs/JsRef.isFunction.<get-isFunction>|<get-isFunction>(){}[0]
+
+    final fun call(kotlin/Array<out wang.harlon.mquickjs/JsValue>...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRef.call|call(kotlin.Array<out|wang.harlon.mquickjs.JsValue>...){}[0]
+    final fun close() // wang.harlon.mquickjs/JsRef.close|close(){}[0]
+    final fun get(kotlin/Int, wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRef.get|get(kotlin.Int;wang.harlon.mquickjs.ObjectTransport){}[0]
+    final fun get(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRef.get|get(kotlin.String;wang.harlon.mquickjs.ObjectTransport){}[0]
+    final fun invoke(wang.harlon.mquickjs/JsRef?, kotlin.collections/List<wang.harlon.mquickjs/JsValue>, wang.harlon.mquickjs/ObjectTransport = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRef.invoke|invoke(wang.harlon.mquickjs.JsRef?;kotlin.collections.List<wang.harlon.mquickjs.JsValue>;wang.harlon.mquickjs.ObjectTransport){}[0]
+    final fun retain(): wang.harlon.mquickjs/JsRef // wang.harlon.mquickjs/JsRef.retain|retain(){}[0]
+    final fun set(kotlin/String, wang.harlon.mquickjs/JsValue) // wang.harlon.mquickjs/JsRef.set|set(kotlin.String;wang.harlon.mquickjs.JsValue){}[0]
+    final fun toJson(): kotlin/String? // wang.harlon.mquickjs/JsRef.toJson|toJson(){}[0]
+    final fun toString(): kotlin/String // wang.harlon.mquickjs/JsRef.toString|toString(){}[0]
+}
+
+final class wang.harlon.mquickjs/JsRuntime : kotlin/AutoCloseable { // wang.harlon.mquickjs/JsRuntime|null[0]
+    constructor <init>(wang.harlon.mquickjs/JsEngineConfig = ..., kotlinx.coroutines/CoroutineDispatcher = ...) // wang.harlon.mquickjs/JsRuntime.<init>|<init>(wang.harlon.mquickjs.JsEngineConfig;kotlinx.coroutines.CoroutineDispatcher){}[0]
+
+    final fun close() // wang.harlon.mquickjs/JsRuntime.close|close(){}[0]
+    final suspend fun <#A1: kotlin/Any?> withEngine(kotlin/Function1<wang.harlon.mquickjs/JsEngine, #A1>): #A1 // wang.harlon.mquickjs/JsRuntime.withEngine|withEngine(kotlin.Function1<wang.harlon.mquickjs.JsEngine,0:0>){0§<kotlin.Any?>}[0]
+    final suspend fun evaluate(kotlin/String, kotlin/String = ..., wang.harlon.mquickjs/ObjectTransport = ..., kotlin.time/Duration? = ...): wang.harlon.mquickjs/JsValue // wang.harlon.mquickjs/JsRuntime.evaluate|evaluate(kotlin.String;kotlin.String;wang.harlon.mquickjs.ObjectTransport;kotlin.time.Duration?){}[0]
+    final suspend fun registerFunction(kotlin/String, wang.harlon.mquickjs/ObjectTransport = ..., wang.harlon.mquickjs/JsHostFunction) // wang.harlon.mquickjs/JsRuntime.registerFunction|registerFunction(kotlin.String;wang.harlon.mquickjs.ObjectTransport;wang.harlon.mquickjs.JsHostFunction){}[0]
+    final suspend fun shutdown() // wang.harlon.mquickjs/JsRuntime.shutdown|shutdown(){}[0]
 }
 
 final object wang.harlon.mquickjs/MQuickJs { // wang.harlon.mquickjs/MQuickJs|null[0]

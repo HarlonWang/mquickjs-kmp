@@ -2,7 +2,7 @@ package wang.harlon.mquickjs
 
 /**
  * A JavaScript value crossing the engine boundary. Primitives are carried as-is;
- * objects and arrays travel as JSON text.
+ * objects and arrays travel as JSON text ([Json]) or as live handles ([JsRef]).
  */
 public sealed interface JsValue {
     public object Undefined : JsValue {
