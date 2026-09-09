@@ -168,6 +168,7 @@ kmpjs_engine *kmpjs_create(int32_t mem_bytes, void *user, kmpjs_host_fn host, km
     e = calloc(1, sizeof(*e));
     if (!e)
         return NULL;
+    atomic_init(&e->state, KMP_IDLE);
     e->mem = malloc((size_t)mem_bytes);
     if (!e->mem) {
         free(e);
