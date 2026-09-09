@@ -20,8 +20,6 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 | iOS（`iosArm64`、`iosSimulatorArm64`） | cinterop | 静态库打进 klib，不需要 CocoaPods / SPM |
 | macOS（`macosArm64`） | cinterop | `DEBUG_GC` / ASan 的调试宿主，同时随包发布 |
 
-JVM 桌面与 Web 不在本期范围。
-
 ## 安装
 
 ```kotlin

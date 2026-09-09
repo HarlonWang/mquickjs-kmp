@@ -22,8 +22,6 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 | iOS (`iosArm64`, `iosSimulatorArm64`) | cinterop | static library bundled in the klib, no CocoaPods / SPM |
 | macOS (`macosArm64`) | cinterop | debug host for `DEBUG_GC` / ASan, published as well |
 
-JVM desktop and Web are out of scope for this phase.
-
 ## Install
 
 ```kotlin
