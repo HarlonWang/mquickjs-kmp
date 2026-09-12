@@ -25,6 +25,7 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 ```kotlin
 commonMain.dependencies {
     implementation("wang.harlon:mquickjs-kmp:latest.version")
+    implementation("wang.harlon:mquickjs-kmp-serialization:latest.version") // 可选：kotlinx.serialization 类型化桥接
 }
 ```
 
@@ -81,6 +82,28 @@ JsEngine().use { engine ->
 
 字节码绑定产出它的 SDK 所内嵌的引擎 commit（`MQuickJs.upstreamCommit`）与字长（`JsBytecode.wordSize`：除 `armeabi-v7a` 外都是 64），不匹配会以明确的 `JsException` 拒绝。除此之外字节码内容不做校验，只加载本 SDK 编出来的。命令行工具 `kmpjsc`（`./gradlew :library:buildHostTools`）做同样的事。
 
+### 类型化传值：`mquickjs-kmp-serialization`
+
+可选模块 `mquickjs-kmp-serialization` 用 kotlinx.serialization 让 `@Serializable` 类型直接过桥：原始类型映射为 `JsValue.Num` / `Str` / `Bool` / `Null`，其余一律以 JSON 文本过桥。
+
+```kotlin
+@Serializable data class Order(val id: Int, val items: List<String>)
+@Serializable data class Quote(val total: Double, val discounted: Boolean)
+
+JsEngine().use { engine ->
+    engine.registerFunction("quote") { order: Order ->
+        Quote(total = order.items.size * 9.5, discounted = order.items.size > 3)
+    }
+    val quote: Quote = engine.evaluateAs("quote({id: 1, items: ['a', 'b']})")
+    val ids: List<Int> = engine.evaluate("[1, 2, 3]").decode()
+}
+```
+
+- `Json.encodeToJsValue` / `Json.decodeFromJsValue` 是基础件，`JsValue.decode<T>()` 与 `JsEngine.evaluateAs<T>()` 是快捷方式。`JsRef` 经 `toJson()` 解码。
+- 类型化的 `registerFunction` 支持一到三个参数。缺失的参数按 `undefined`（即 `null`）解码，解码失败在 JS 侧表现为 `Error`，返回 `Unit` 得到 `undefined`。
+- 每个入口都接受 `json: Json`，用于 `ignoreUnknownKeys` 之类的配置，默认 `Json.Default`。
+- `JsRuntime` 有同样的 `evaluateAs` 与类型化 `registerFunction`。
+
 ### 协程：`JsRuntime`
 
 `JsRuntime` 把对同一引擎的所有访问串行到单车道 dispatcher 上，并把协程取消与超时映射为引擎中断。
@@ -112,7 +135,7 @@ try {
 ## 构建
 
 - Gradle daemon 要求 JDK 25（`gradle/gradle-daemon-jvm.properties`，缺失时 Gradle 自动下载）、Xcode、装有 `gradle/libs.versions.toml` 所锁定 NDK 版本的 Android SDK、PATH 上的 `cmake`。
-- `./gradlew :library:macosArm64Test` 是最快的完整检查；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
+- `./gradlew macosArm64Test` 是最快的完整检查（只查核心模块用 `:library:macosArm64Test`）；`testAndroidHostTest` 在宿主上经真实 JNI 桥接跑同一套用例；`connectedAndroidDeviceTest` 在设备或模拟器上跑。
 - `./gradlew :library:nativeShimTest` 在 `DEBUG_GC`（每次分配都移动对象）加 AddressSanitizer 下跑 C 层 shim 测试。
 - CI（`.github/workflows/build.yml`）对每个 PR 与 main 推送跑 shim 测试、macOS 测试、Android host 测试、iOS 编译、Android AAR 组装与 API 校验；推版本 tag 时 `publish.yml` 发布到 Maven Central。
 

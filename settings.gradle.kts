@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 rootProject.name = "mquickjs-kmp"
 
 include(":library")
+include(":serialization")
