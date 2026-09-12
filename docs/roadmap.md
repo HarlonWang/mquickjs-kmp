@@ -27,7 +27,7 @@
 
 ## M4 类型化桥接（已完成）
 
-- kotlinx.serialization 桥接（在主模块里）：`Json.encodeToJsValue` / `decodeFromJsValue`、`JsValue.decode`、`JsEngine` / `JsRuntime` 的 `evaluateAs` 与一到三参的类型化 `registerFunction`
+- kotlinx.serialization 桥接：`Json.encodeToJsValue` / `decodeFromJsValue`、`JsValue.decode`、`JsEngine` / `JsRuntime` 的 `evaluateAs` 与一到三参的类型化 `registerFunction`
 
 ## 之后
 

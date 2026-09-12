@@ -34,4 +34,4 @@ commonMain      JsEngine / JsValue / JsRef / JsException（expect 声明 + 纯 K
 
 ## 公共 API 边界
 
-core 暴露 `JsEngine`、`JsEngineConfig`、`JsValue`（sealed）、`JsRef`、`ObjectTransport`、`JsHostFunction`、`JsException`、`JsRuntime`。类型化桥接（kotlinx.serialization）是同一模块里对这些类型的扩展函数（`*Serialization.kt`），不动核心类型；kotlinx-serialization-json 以 `api` 依赖随包带出（取舍见 decisions.md）。公共 API 由 binary-compatibility-validator 守门，`api/` 目录下的 `.api` 文件入库。
+core 暴露 `JsEngine`、`JsEngineConfig`、`JsValue`（sealed）、`JsRef`、`ObjectTransport`、`JsHostFunction`、`JsException`、`JsRuntime`。类型化桥接（kotlinx.serialization）是对这些类型的扩展函数（`*Serialization.kt`），不动核心类型（映射规则见 decisions.md）。公共 API 由 binary-compatibility-validator 守门，`api/` 目录下的 `.api` 文件入库。

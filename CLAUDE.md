@@ -4,7 +4,7 @@ MicroQuickJS 的 KMP 绑定 SDK。开始工作前先读 README.md，再按需读
 
 ## 结构
 
-- `library/`：核心模块，artifactId `mquickjs-kmp`（主模块叫 library，扩展模块用自己的名字并以 `mquickjs-kmp-` 为产物前缀，同 kmp-webview），包名 `wang.harlon.mquickjs`；kotlinx.serialization 类型化桥接也在这里（`*Serialization.kt`），不单独成模块
+- `library/`：核心模块，artifactId `mquickjs-kmp`（主模块叫 library，扩展模块用自己的名字并以 `mquickjs-kmp-` 为产物前缀，同 kmp-webview），包名 `wang.harlon.mquickjs`；kotlinx.serialization 类型化桥接在 `*Serialization.kt`
 - `native/mquickjs/`：上游 git subtree，**禁止直接修改**，改动进 `native/patches/`
 - `native/stdlib/kmp_stdlib.c`：从上游 `mqjs_stdlib.c` 复制修改而来，subtree pull 后要 diff 同步
 - `native/shim/`：唯一的 C API 层，JNI 与 cinterop 都只对接它
