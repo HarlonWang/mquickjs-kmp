@@ -49,9 +49,12 @@ inline fun <reified T> JsValue.decode(json: Json = Json.Default): T = json.decod
 
 private fun notSerializable() = SerializationException("JS value is not JSON-serializable")
 
-// 整数值按 Long 编码，否则 3.0 的 content 是 "3.0"，解成 Int 会失败
-private fun Double.toJsonPrimitive(): JsonPrimitive =
-    if (this == toLong().toDouble()) JsonPrimitive(toLong()) else JsonPrimitive(this)
+// 整数值按 Long 编码，否则 3.0 的 content 是 "3.0"，解成 Int 会失败；
+// 2^63 经 toLong() 饱和后相等判断仍成立，所以还要卡在 Long 范围内
+private fun Double.toJsonPrimitive(): JsonPrimitive {
+    val whole = this >= Long.MIN_VALUE.toDouble() && this < Long.MAX_VALUE.toDouble() && this == toLong().toDouble()
+    return if (whole) JsonPrimitive(toLong()) else JsonPrimitive(this)
+}
 
 private fun JsonElement.toJsValue(): JsValue = when (this) {
     JsonNull -> JsValue.Null

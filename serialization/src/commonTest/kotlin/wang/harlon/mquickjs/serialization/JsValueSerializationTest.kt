@@ -40,6 +40,10 @@ class JsValueSerializationTest {
         assertEquals("x", JsValue.Str("x").decode())
         assertEquals(true, JsValue.Bool(true).decode())
         assertEquals(Status.ACTIVE, JsValue.Str("ACTIVE").decode())
+        assertEquals(0, JsValue.Num(-0.0).decode())
+        assertEquals(9223372036854774784L, JsValue.Num(9223372036854774784.0).decode())
+        assertEquals(9.223372036854775807E18, JsValue.Num(9.223372036854775807E18).decode())
+        assertEquals(1e19, JsValue.Num(1e19).decode())
         assertNull(JsValue.Null.decode<String?>())
         assertNull(JsValue.Undefined.decode<User?>())
     }
