@@ -40,12 +40,6 @@ jobs:
           :library:compileKotlinIosSimulatorArm64
           :library:assembleAndroidMain
           :library:apiCheck
-          :serialization:macosArm64Test
-          :serialization:testAndroidHostTest
-          :serialization:compileKotlinIosArm64
-          :serialization:compileKotlinIosSimulatorArm64
-          :serialization:assembleAndroidMain
-          :serialization:apiCheck
 
       - name: Upload test results
         if: always()
@@ -54,6 +48,5 @@ jobs:
           name: test-results
           path: |
             library/build/test-results/
-            serialization/build/test-results/
           if-no-files-found: ignore
 

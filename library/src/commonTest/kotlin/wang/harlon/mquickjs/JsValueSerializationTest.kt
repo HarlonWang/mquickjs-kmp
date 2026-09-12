@@ -1,4 +1,4 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -6,10 +6,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import wang.harlon.mquickjs.JsEngine
-import wang.harlon.mquickjs.JsRef
-import wang.harlon.mquickjs.JsValue
-import wang.harlon.mquickjs.ObjectTransport
 
 class JsValueSerializationTest {
     private val lenient = Json { ignoreUnknownKeys = true }

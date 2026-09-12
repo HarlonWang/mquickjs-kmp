@@ -27,7 +27,6 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 ```kotlin
 commonMain.dependencies {
     implementation("wang.harlon:mquickjs-kmp:latest.version")
-    implementation("wang.harlon:mquickjs-kmp-serialization:latest.version") // optional: typed values via kotlinx.serialization
 }
 ```
 
@@ -84,9 +83,9 @@ JsEngine().use { engine ->
 
 Bytecode is bound to the engine commit of the SDK that produced it (`MQuickJs.upstreamCommit`) and to a word size (`JsBytecode.wordSize`: 64 everywhere except `armeabi-v7a`); mismatches are rejected with a clear `JsException`. Nothing else about the bytes is validated, so only load what this SDK compiled. The host tool `kmpjsc` (`./gradlew :library:buildHostTools`) does the same from the command line.
 
-### Typed values: `mquickjs-kmp-serialization`
+### Typed values: kotlinx.serialization
 
-The optional `mquickjs-kmp-serialization` module carries `@Serializable` types across the boundary with kotlinx.serialization: primitives become `JsValue.Num` / `Str` / `Bool` / `Null`, everything else becomes JSON text.
+`@Serializable` types cross the boundary with kotlinx.serialization (the runtime ships with the SDK; add the compiler plugin to your own module): primitives become `JsValue.Num` / `Str` / `Bool` / `Null`, everything else becomes JSON text.
 
 ```kotlin
 @Serializable data class Order(val id: Int, val items: List<String>)

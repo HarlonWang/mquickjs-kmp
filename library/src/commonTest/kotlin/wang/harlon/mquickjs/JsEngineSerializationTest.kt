@@ -1,4 +1,4 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -6,9 +6,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import wang.harlon.mquickjs.JsEngine
-import wang.harlon.mquickjs.JsException
-import wang.harlon.mquickjs.JsValue
 
 class JsEngineSerializationTest {
     @Test

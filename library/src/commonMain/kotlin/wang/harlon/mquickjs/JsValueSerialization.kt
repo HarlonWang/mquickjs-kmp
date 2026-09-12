@@ -1,4 +1,4 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
@@ -10,8 +10,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.serializer
-import wang.harlon.mquickjs.JsRef
-import wang.harlon.mquickjs.JsValue
 
 /**
  * Encodes [value] into a [JsValue]: primitives and null become their native counterparts,

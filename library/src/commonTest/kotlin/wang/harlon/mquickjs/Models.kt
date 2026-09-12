@@ -1,4 +1,4 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlinx.serialization.Serializable
 
