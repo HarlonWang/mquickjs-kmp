@@ -1,4 +1,3 @@
 # 消费方 composite build 的契约：发布坐标 → 本仓项目路径（改模块名或路径要同步改这里）。
 # artifactId 与 Gradle 项目名对不上时 Gradle 的自动替换会静默退回 Maven 版本，故必须显式声明。
 wang.harlon:mquickjs-kmp = :library
-wang.harlon:mquickjs-kmp-serialization = :serialization

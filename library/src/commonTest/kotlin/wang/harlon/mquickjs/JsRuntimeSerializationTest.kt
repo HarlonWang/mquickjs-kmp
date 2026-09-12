@@ -1,4 +1,4 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
-import wang.harlon.mquickjs.JsRuntime
 
 class JsRuntimeSerializationTest {
     // 走 Dispatchers.Default 跳出 runTest 的虚拟时间，超时才能对上真实阻塞求值

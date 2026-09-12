@@ -27,7 +27,7 @@
 
 ## M4 类型化桥接（已完成）
 
-- `mquickjs-kmp-serialization` 模块：`Json.encodeToJsValue` / `decodeFromJsValue`、`JsValue.decode`、`JsEngine` / `JsRuntime` 的 `evaluateAs` 与一到三参的类型化 `registerFunction`；core 不依赖序列化库
+- kotlinx.serialization 桥接：`Json.encodeToJsValue` / `decodeFromJsValue`、`JsValue.decode`、`JsEngine` / `JsRuntime` 的 `evaluateAs` 与一到三参的类型化 `registerFunction`
 
 ## 之后
 

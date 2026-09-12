@@ -25,7 +25,6 @@ MQuickJS 用 JavaScript 覆盖面换体积：接近 ES5 的严格子集、压缩
 ```kotlin
 commonMain.dependencies {
     implementation("wang.harlon:mquickjs-kmp:latest.version")
-    implementation("wang.harlon:mquickjs-kmp-serialization:latest.version") // 可选：kotlinx.serialization 类型化桥接
 }
 ```
 
@@ -82,9 +81,9 @@ JsEngine().use { engine ->
 
 字节码绑定产出它的 SDK 所内嵌的引擎 commit（`MQuickJs.upstreamCommit`）与字长（`JsBytecode.wordSize`：除 `armeabi-v7a` 外都是 64），不匹配会以明确的 `JsException` 拒绝。除此之外字节码内容不做校验，只加载本 SDK 编出来的。命令行工具 `kmpjsc`（`./gradlew :library:buildHostTools`）做同样的事。
 
-### 类型化传值：`mquickjs-kmp-serialization`
+### 类型化传值：kotlinx.serialization
 
-可选模块 `mquickjs-kmp-serialization` 用 kotlinx.serialization 让 `@Serializable` 类型直接过桥：原始类型映射为 `JsValue.Num` / `Str` / `Bool` / `Null`，其余一律以 JSON 文本过桥。
+`@Serializable` 类型用 kotlinx.serialization 直接过桥（运行时随 SDK 带上，编译器插件要在自己的模块里加）：原始类型映射为 `JsValue.Num` / `Str` / `Bool` / `Null`，其余一律以 JSON 文本过桥。
 
 ```kotlin
 @Serializable data class Order(val id: Int, val items: List<String>)

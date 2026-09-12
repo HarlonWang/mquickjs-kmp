@@ -1,8 +1,6 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlinx.serialization.json.Json
-import wang.harlon.mquickjs.JsEngine
-import wang.harlon.mquickjs.JsValue
 
 /** [JsEngine.evaluate] followed by [JsValue.decode]. */
 inline fun <reified T> JsEngine.evaluateAs(

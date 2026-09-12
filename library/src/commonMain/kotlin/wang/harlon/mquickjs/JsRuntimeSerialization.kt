@@ -1,8 +1,7 @@
-package wang.harlon.mquickjs.serialization
+package wang.harlon.mquickjs
 
 import kotlin.time.Duration
 import kotlinx.serialization.json.Json
-import wang.harlon.mquickjs.JsRuntime
 
 /** [JsRuntime.evaluate] followed by [JsValue.decode]. */
 suspend inline fun <reified T> JsRuntime.evaluateAs(
