@@ -30,7 +30,7 @@ atomicfu、kotlinx-benchmark、Dokka 都到对应里程碑再加（见 roadmap.m
 
 ## 类型化桥接：独立模块，走 JsonElement，宿主函数按参数个数重载
 
-`serialization` 是独立模块而不是 core 的可选依赖：只做「脚本算完给结果」的使用方不该背上序列化运行时与编译器插件，core 的 `JsValue` 本身就是完整的跨界表示。模块只在 `JsValue` 上做扩展，不动 core 的类型：`JsValue.Json` 文本直接 `decodeFromString`，原始值先转 `JsonElement` 再 `decodeFromJsonElement`，编码统一经 `encodeToJsonElement` 后映射——原始类型落到 `Num` / `Str` / `Bool` / `Null` 而不是包成 JSON 文本，与 core「原始类型直传，对象走 JSON」的过桥约定一致，也省掉引擎侧一次 JSON 解析。整数值且落在 `Long` 范围内的 `Num` 转成 Long 形态的 `JsonPrimitive`，因为 `JsonPrimitive(3.0)` 的 content 是 `"3.0"`，kotlinx 解成 `Int` 会失败，而引擎的 `JSON.stringify(3)` 本来就是 `3`；2^63 及以上、NaN 保留 Double 形态，`-0.0` 与 `JSON.stringify(-0)` 一样写成 `0`。`undefined` 与 `null` 都解成 `JsonNull`：`undefined` 没有别的合理映射，且缺失的宿主函数参数正是 `undefined`。
+`serialization` 是独立模块而不是 core 的可选依赖：只做「脚本算完给结果」的使用方不该背上序列化运行时与编译器插件，core 的 `JsValue` 本身就是完整的跨界表示。模块只在 `JsValue` 上做扩展，不动 core 的类型：`JsValue.Json` 文本直接 `decodeFromString`，原始值先转 `JsonElement` 再 `decodeFromJsonElement`，编码统一经 `encodeToJsonElement` 后映射——原始类型落到 `Num` / `Str` / `Bool` / `Null` 而不是包成 JSON 文本，与 core「原始类型直传，对象走 JSON」的过桥约定一致，也省掉引擎侧一次 JSON 解析。整数值且落在 `Long` 范围内的 `Num` 转成 Long 形态的 `JsonPrimitive`，因为 `JsonPrimitive(3.0)` 的 content 是 `"3.0"`，kotlinx 解成 `Int` 会失败，而引擎的 `JSON.stringify(3)` 本来就是 `3`；超出 `Long` 范围的整数（如 2^63）与 NaN 保留 Double 形态，`-0.0` 与 `JSON.stringify(-0)` 一样写成 `0`。`undefined` 与 `null` 都解成 `JsonNull`：`undefined` 没有别的合理映射，且缺失的宿主函数参数正是 `undefined`。
 
 类型化的 `registerFunction` 按 lambda 参数个数重载（一到三个），与 core 的 `registerFunction(name) { args -> }` 同名：lambda 参数带显式类型时 SAM 转换不适用、落到扩展，不带类型时成员优先、落到 core，两者互不干扰。不做零参重载：`{ Reply() }` 对 `JsHostFunction` 的 SAM 转换是适用的，成员会先被选中再报返回类型不匹配，错误信息误导。返回 `Unit` 特判为 `undefined`，否则 `UnitSerializer` 会编成 `{}`。
 
