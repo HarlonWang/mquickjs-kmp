@@ -25,8 +25,11 @@
 - 字节码预编译（已完成）：shim `kmpjs_compile` / `kmpjs_load_bytecode` / `kmpjs_run_program`，Kotlin `JsBytecode.compile` / `JsEngine.loadBytecode` / `JsProgram`，宿主工具 `kmpjsc`，文件头绑定上游 commit 与字长
 - 0.1.0 发布（已完成）；1.0 等 benchmark 与更多使用反馈之后
 
+## M4 类型化桥接（已完成）
+
+- `mquickjs-kmp-serialization` 模块：`Json.encodeToJsValue` / `decodeFromJsValue`、`JsValue.decode`、`JsEngine` / `JsRuntime` 的 `evaluateAs` 与一到三参的类型化 `registerFunction`；core 不依赖序列化库
+
 ## 之后
 
-- `mquickjs-serialization`：kotlinx.serialization 类型化桥接
 - Gradle 插件：构建期 stricter mode 语法检查、按平台预编译字节码
 - 桌面 JVM、Web（Wasm 沙箱场景）

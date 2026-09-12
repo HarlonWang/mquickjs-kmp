@@ -27,6 +27,7 @@ MQuickJS trades JavaScript coverage for footprint: an ES5-ish strict subset, a c
 ```kotlin
 commonMain.dependencies {
     implementation("wang.harlon:mquickjs-kmp:latest.version")
+    implementation("wang.harlon:mquickjs-kmp-serialization:latest.version") // optional: typed values via kotlinx.serialization
 }
 ```
 
@@ -83,6 +84,28 @@ JsEngine().use { engine ->
 
 Bytecode is bound to the engine commit of the SDK that produced it (`MQuickJs.upstreamCommit`) and to a word size (`JsBytecode.wordSize`: 64 everywhere except `armeabi-v7a`); mismatches are rejected with a clear `JsException`. Nothing else about the bytes is validated, so only load what this SDK compiled. The host tool `kmpjsc` (`./gradlew :library:buildHostTools`) does the same from the command line.
 
+### Typed values: `mquickjs-kmp-serialization`
+
+The optional `mquickjs-kmp-serialization` module carries `@Serializable` types across the boundary with kotlinx.serialization: primitives become `JsValue.Num` / `Str` / `Bool` / `Null`, everything else becomes JSON text.
+
+```kotlin
+@Serializable data class Order(val id: Int, val items: List<String>)
+@Serializable data class Quote(val total: Double, val discounted: Boolean)
+
+JsEngine().use { engine ->
+    engine.registerFunction("quote") { order: Order ->
+        Quote(total = order.items.size * 9.5, discounted = order.items.size > 3)
+    }
+    val quote: Quote = engine.evaluateAs("quote({id: 1, items: ['a', 'b']})")
+    val ids: List<Int> = engine.evaluate("[1, 2, 3]").decode()
+}
+```
+
+- `Json.encodeToJsValue` / `Json.decodeFromJsValue` are the building blocks; `JsValue.decode<T>()` and `JsEngine.evaluateAs<T>()` are shortcuts. A `JsRef` decodes through its `toJson()`.
+- Typed `registerFunction` takes one to three arguments. A missing argument decodes like `undefined` (that is, as `null`), a decoding failure surfaces in JS as an `Error`, and returning `Unit` yields `undefined`.
+- Every entry point takes a `json: Json` for `ignoreUnknownKeys` and friends; the default is `Json.Default`.
+- `JsRuntime` has the same `evaluateAs` and typed `registerFunction`.
+
 ### Coroutines: `JsRuntime`
 
 `JsRuntime` serializes every access to one engine on a single-lane dispatcher and maps cancellation and timeouts to engine interrupts.
@@ -114,7 +137,7 @@ Exclusion comes from an internal mutex, so any dispatcher works; the default is 
 ## Building
 
 - JDK 25 for the Gradle daemon (`gradle/gradle-daemon-jvm.properties`; Gradle downloads it when missing), Xcode, Android SDK with the NDK version pinned in `gradle/libs.versions.toml`, and `cmake` on `PATH`.
-- `./gradlew :library:macosArm64Test` is the fastest full check; `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
+- `./gradlew macosArm64Test` is the fastest full check (`:library:macosArm64Test` for the core module alone); `testAndroidHostTest` runs the same suite through the real JNI bridge on the host; `connectedAndroidDeviceTest` runs it on a device or emulator.
 - `./gradlew :library:nativeShimTest` runs the C-level shim tests under `DEBUG_GC` (every allocation moves objects) and AddressSanitizer.
 - CI (`.github/workflows/build.yml`) runs the shim tests, macOS tests, Android host tests, iOS compilation, Android AAR assembly and the API check on every PR and push to `main`; `publish.yml` releases to Maven Central when a version tag is pushed.
 

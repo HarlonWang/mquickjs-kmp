@@ -314,6 +314,14 @@ val buildNativeHostJni = tasks.register<CMakeBuild>("buildNativeHostJni") {
     )
 }
 
+// 扩展模块的 Android host test 也要挂同一份宿主 JNI 库，通过 configuration 消费，不跨项目摸 build 目录
+val hostJniElements by configurations.creating {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named("mquickjs-host-jni"))
+}
+artifacts.add(hostJniElements.name, buildNativeHostJni.flatMap { it.libDir })
+
 // shim 的 C 测试：DEBUG_GC 让每次分配都移动对象，ASan 抓越界与悬垂，是句柄表最直接的保险（docs/native-build.md）
 val buildNativeShimTest = tasks.register<CMakeBuild>("buildNativeShimTest") {
     sources.from(nativeSources)
